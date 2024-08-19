@@ -1,0 +1,18 @@
+adventure to the right
+===
+#: wall
+p: player
+.: empty
+-: backwall
+e: exit_anchor
+===
+left: 0
+===
+...########
+...#......#
+...#......#
+####......#
+e......####
+.......#...
+..p....#...
+########...
