@@ -1,0 +1,20 @@
+janky tech that i might keep
+===
+#: wall
+p: player
+.: empty
+-: backwall
+e: exit_anchor
+d: door
+===
+door: 4
+door: 6
+===
+##########
+#........#
+#........#
+#.d.p....#
+######...#
+######...#
+######.d.#
+######...#

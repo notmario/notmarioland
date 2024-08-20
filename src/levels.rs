@@ -1,4 +1,5 @@
-use super::{PIXEL_SIZE, TILE_PIXELS, TILE_SIZE};
+use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
+use crate::texture_cache;
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -48,7 +49,7 @@ impl Tile {
         }
     }
 
-    pub fn draw(&self, x: i32, y: i32) {
+    pub fn draw(&self, x: i32, y: i32, _textures: &mut HashMap<String, Texture2D>) {
         match self {
             Self::Empty => (),
             Self::Wall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK),
@@ -199,9 +200,10 @@ pub trait Object {
 
     fn get_aabb(&self) -> AABB;
 
-    fn update(&mut self, _tiles: &Vec<Vec<Vec<Tile>>>) {}
+    fn update(&mut self, _keys_pressed: &mut HashMap<KeyCode, bool>, _tiles: &Vec<Vec<Vec<Tile>>>) {
+    }
 
-    fn draw(&self, _off_x: i32, _off_y: i32) {}
+    fn draw(&self, _off_x: i32, _off_y: i32, _texture: &mut HashMap<String, Texture2D>) {}
 
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -213,6 +215,8 @@ pub struct Player {
 
     pub vx: i32,
     pub vy: i32,
+
+    pub anim_timer: i32,
 
     pub grounded: bool,
 
@@ -234,25 +238,25 @@ impl Object for Player {
         }
     }
 
-    fn update(&mut self, tiles: &Vec<Vec<Vec<Tile>>>) {
+    fn update(&mut self, keys_pressed: &mut HashMap<KeyCode, bool>, tiles: &Vec<Vec<Vec<Tile>>>) {
         // accelerate left and right
         self.freeze_timer -= 1;
         if self.freeze_timer <= 0 {
             if is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) {
-                self.vx -= TILE_SIZE / 16;
+                self.vx -= PLAYER_ACCEL;
                 if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx < -TILE_SIZE * 3 / 16 {
-                    self.vx = -TILE_SIZE * 3 / 16
+                if self.vx < -MAX_PLAYER_SPEED {
+                    self.vx = -MAX_PLAYER_SPEED
                 }
             } else if is_key_down(KeyCode::Right) && !is_key_down(KeyCode::Left) {
-                self.vx += TILE_SIZE / 16;
+                self.vx += PLAYER_ACCEL;
                 if self.wall_sliding < 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx > TILE_SIZE * 3 / 16 {
-                    self.vx = TILE_SIZE * 3 / 16
+                if self.vx > MAX_PLAYER_SPEED {
+                    self.vx = MAX_PLAYER_SPEED
                 }
             }
         }
@@ -260,6 +264,9 @@ impl Object for Player {
         if !is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) && self.freeze_timer <= 0 {
             self.vx *= 11;
             self.vx /= 16;
+            self.anim_timer = 0;
+        } else {
+            self.anim_timer += 1;
         }
 
         if is_key_down(KeyCode::Down) {
@@ -274,6 +281,9 @@ impl Object for Player {
         // in practice this will never be hit
         self.vx = self.vx.clamp(-TILE_SIZE, TILE_SIZE);
         self.vy = self.vy.clamp(-TILE_SIZE, TILE_SIZE);
+        if self.grounded {
+            self.vy = self.vy.min(TILE_SIZE / 6)
+        }
 
         // horizontal movement
         // move to tile boundary if we are moving too fast
@@ -299,7 +309,7 @@ impl Object for Player {
             if (self.vx < 0 && is_key_down(KeyCode::Left))
                 || (self.vx > 0 && is_key_down(KeyCode::Right))
             {
-                self.wall_sliding = self.vx.signum()
+                self.wall_sliding = self.vx.signum();
             }
             self.vx = 0;
         } else if remaining_movement.abs() > 0 {
@@ -313,7 +323,7 @@ impl Object for Player {
             } else {
                 self.vy = self.vy.min(TILE_SIZE / 32);
             }
-            if is_key_pressed(KeyCode::Z) && !self.grounded {
+            if *keys_pressed.entry(KeyCode::Z).or_insert(false) && !self.grounded {
                 self.grounded = false;
                 self.freeze_timer = 14;
                 if self.wall_sliding < 0 {
@@ -327,8 +337,12 @@ impl Object for Player {
             }
         }
 
-        if self.grounded && is_key_down(KeyCode::Z) {
+        if self.grounded && *keys_pressed.entry(KeyCode::Z).or_insert(false) {
             self.vy = -TILE_SIZE * 5 / 16;
+            if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
+                self.vx *= 9;
+                self.vx /= 8;
+            }
             self.grounded = false;
         }
 
@@ -355,17 +369,73 @@ impl Object for Player {
             } else {
                 self.vy = PIXEL_SIZE;
             }
+            self.wall_sliding = 0;
         }
     }
 
-    fn draw(&self, off_x: i32, off_y: i32) {
-        draw_rect_i32(
-            self.x / PIXEL_SIZE + off_x,
-            self.y / PIXEL_SIZE + off_y,
-            TILE_PIXELS,
-            TILE_PIXELS,
-            BLUE,
-        );
+    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
+        // draw_rect_i32(
+        //     self.x / PIXEL_SIZE + off_x,
+        //     self.y / PIXEL_SIZE + off_y,
+        //     TILE_PIXELS,
+        //     TILE_PIXELS,
+        //     BLUE,
+        // );
+
+        let t = texture_cache!(textures, "assets/player.png");
+
+        let mut draw_offset = (0, 0);
+
+        if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
+            if self.vx < 4 {
+                draw_offset = (16, 48)
+            } else if self.vx > 4 {
+                draw_offset = (0, 48)
+            } else {
+                draw_offset = (16, 0)
+            }
+        } else if !self.grounded {
+            if self.vx < 4 {
+                draw_offset = (16, 80)
+            } else if self.vx > 4 {
+                draw_offset = (0, 80)
+            } else {
+                draw_offset = (0, 0)
+            }
+        } else if is_key_down(KeyCode::Left) {
+            if self.anim_timer % 24 < 16 {
+                draw_offset = (0, 32)
+            } else {
+                draw_offset = (16, 32)
+            }
+        } else if is_key_down(KeyCode::Right) {
+            if self.anim_timer % 24 < 16 {
+                draw_offset = (0, 16)
+            } else {
+                draw_offset = (16, 16)
+            }
+        }
+        if self.wall_sliding < 0 {
+            draw_offset = (16, 64)
+        } else if self.wall_sliding > 0 {
+            draw_offset = (0, 64)
+        }
+
+        draw_texture_ex(
+            &t,
+            (self.x / PIXEL_SIZE + off_x) as f32,
+            (self.y / PIXEL_SIZE + off_y) as f32,
+            WHITE,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: draw_offset.0 as f32,
+                    y: draw_offset.1 as f32,
+                    w: 16.,
+                    h: 16.,
+                }),
+                ..Default::default()
+            },
+        )
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -432,13 +502,14 @@ impl LevelRaw {
         }
         side_offsets
     }
-    pub fn draw(&self, off_x: i32, off_y: i32) {
+    pub fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
         for layer in self.tiles.iter() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {
                     tile.draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
+                        textures,
                     )
                 }
             }
@@ -451,9 +522,10 @@ impl LevelRaw {
         levels: &Vec<LevelRaw>,
         seen: &mut Vec<usize>,
         skip_actually_drawing: bool,
+        textures: &mut HashMap<String, Texture2D>,
     ) {
         if !skip_actually_drawing {
-            self.draw(off_x, off_y)
+            self.draw(off_x, off_y, textures)
         }
         if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("balls")) {
             let ind = self.exits.left.expect("balls");
@@ -464,7 +536,14 @@ impl LevelRaw {
                 - levels[ind].side_offsets().right.expect("balls"))
                 / PIXEL_SIZE;
 
-            levels[ind].propagate_draw(off_x - offset, off_y + perp_offset, levels, seen, false);
+            levels[ind].propagate_draw(
+                off_x - offset,
+                off_y + perp_offset,
+                levels,
+                seen,
+                false,
+                textures,
+            );
         };
         if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("balls")) {
             let ind = self.exits.right.expect("balls");
@@ -475,7 +554,14 @@ impl LevelRaw {
                 - levels[ind].side_offsets().left.expect("balls"))
                 / PIXEL_SIZE;
 
-            levels[ind].propagate_draw(off_x + offset, off_y + perp_offset, levels, seen, false);
+            levels[ind].propagate_draw(
+                off_x + offset,
+                off_y + perp_offset,
+                levels,
+                seen,
+                false,
+                textures,
+            );
         };
         if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("balls")) {
             let ind = self.exits.up.expect("balls");
@@ -486,7 +572,14 @@ impl LevelRaw {
                 - levels[ind].side_offsets().down.expect("balls"))
                 / PIXEL_SIZE;
 
-            levels[ind].propagate_draw(off_x + perp_offset, off_y - offset, levels, seen, false);
+            levels[ind].propagate_draw(
+                off_x + perp_offset,
+                off_y - offset,
+                levels,
+                seen,
+                false,
+                textures,
+            );
         };
         if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("balls")) {
             let ind = self.exits.down.expect("balls");
@@ -497,7 +590,14 @@ impl LevelRaw {
                 - levels[ind].side_offsets().up.expect("balls"))
                 / PIXEL_SIZE;
 
-            levels[ind].propagate_draw(off_x + perp_offset, off_y + offset, levels, seen, false);
+            levels[ind].propagate_draw(
+                off_x + perp_offset,
+                off_y + offset,
+                levels,
+                seen,
+                false,
+                textures,
+            );
         };
     }
 }
@@ -547,24 +647,25 @@ impl Level {
         }
         panic!("erm")
     }
-    pub fn draw(&self, off_x: i32, off_y: i32) {
+    pub fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
         for layer in self.tiles.iter() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {
                     tile.draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
+                        textures,
                     )
                 }
             }
         }
         for o in self.objects.iter() {
-            o.draw(off_x, off_y)
+            o.draw(off_x, off_y, textures)
         }
     }
-    pub fn update(&mut self) {
+    pub fn update(&mut self, keys_pressed: &mut HashMap<KeyCode, bool>) {
         for o in self.objects.iter_mut() {
-            o.update(&self.tiles)
+            o.update(keys_pressed, &self.tiles)
         }
     }
 
@@ -595,6 +696,7 @@ impl Level {
                                 grounded: false,
                                 freeze_timer: 0,
                                 wall_sliding: 0,
+                                anim_timer: 0,
                             };
                             objects.push(Box::new(obj));
                             row_tiles.push(Tile::Empty);
