@@ -182,8 +182,10 @@ pub fn find_door(index: usize, map: &Vec<Vec<Vec<Tile>>>) -> Option<(i32, i32)> 
     for layer in map.iter() {
         for (y, row) in layer.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
-                if let Tile::Door(_) = tile {
-                    return Some((x as i32, y as i32));
+                if let Tile::Door(i) = tile {
+                    if *i == index {
+                        return Some((x as i32, y as i32));
+                    }
                 }
             }
         }
@@ -305,7 +307,7 @@ impl Object for Player {
         }
 
         if self.wall_sliding != 0 {
-            self.vx = self.wall_sliding;
+            self.vx = -self.wall_sliding;
             if is_key_down(KeyCode::Down) {
                 self.vy = self.vy.min(TILE_SIZE / 4);
             } else {

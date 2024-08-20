@@ -1,11 +1,11 @@
 use macroquad::prelude::*;
 
-const PIXEL_SIZE: i32 = 256;
+const PIXEL_SIZE: i32 = 64;
 const TILE_PIXELS: i32 = 16;
 const TILE_SIZE: i32 = TILE_PIXELS * PIXEL_SIZE;
 
-const SCREEN_WIDTH: i32 = 384;
-const SCREEN_HEIGHT: i32 = 288;
+const SCREEN_WIDTH: i32 = 512;
+const SCREEN_HEIGHT: i32 = 384;
 
 mod levels;
 use levels::Object;
