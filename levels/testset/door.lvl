@@ -1,0 +1,16 @@
+the closet
+===
+#: wall
+p: player
+.: empty
+-: backwall
+e: exit_anchor
+d: door
+===
+door: 2
+===
+#######
+#.....#
+#.....#
+#.d.p.#
+#######

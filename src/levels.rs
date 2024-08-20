@@ -17,12 +17,21 @@ pub enum Tile {
     Door(usize),
 
     ExitAnchor,
+
+    Spikes,
 }
 
 impl Tile {
     pub fn is_solid(&self) -> bool {
         match self {
             Self::Wall => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_deadly(&self) -> bool {
+        match self {
+            Self::Spikes => true,
             _ => false,
         }
     }
@@ -34,6 +43,7 @@ impl Tile {
             "backwall" => Self::BackWall,
             "door" => Self::DoorGeneric,
             "exit_anchor" => Self::ExitAnchor,
+            "spikes" => Self::Spikes,
             _ => Self::Empty,
         }
     }
@@ -43,6 +53,10 @@ impl Tile {
             Self::Empty => (),
             Self::Wall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK),
             Self::BackWall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY),
+            Self::Door(_) | Self::DoorGeneric => {
+                draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BROWN)
+            }
+            Self::Spikes => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, RED),
             // _ => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, MAGENTA),
             _ => (),
         }
@@ -98,6 +112,86 @@ fn check_tilemap_collision(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
     false
 }
 
+pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for l in map {
+                if l[ty][tx].is_deadly() {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+pub fn check_door(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> Option<Tile> {
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for l in map {
+                if let Tile::Door(_) = l[ty][tx] {
+                    return Some(l[ty][tx]);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+pub fn find_door(index: usize, map: &Vec<Vec<Vec<Tile>>>) -> Option<(i32, i32)> {
+    for layer in map.iter() {
+        for (y, row) in layer.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                if let Tile::Door(_) = tile {
+                    return Some((x as i32, y as i32));
+                }
+            }
+        }
+    }
+
+    None
+}
+
 pub trait Object {
     fn get_type(&self) -> &'static str;
 
@@ -119,6 +213,9 @@ pub struct Player {
     pub vy: i32,
 
     pub grounded: bool,
+
+    pub freeze_timer: i32,
+    pub wall_sliding: i32,
 }
 
 impl Object for Player {
@@ -137,33 +234,40 @@ impl Object for Player {
 
     fn update(&mut self, tiles: &Vec<Vec<Vec<Tile>>>) {
         // accelerate left and right
-        if is_key_down(KeyCode::Left) {
-            self.vx -= TILE_SIZE / 16;
-            if self.vx < -TILE_SIZE * 3 / 16 {
-                self.vx = -TILE_SIZE * 3 / 16
-            }
-        } else if is_key_down(KeyCode::Right) {
-            self.vx += TILE_SIZE / 16;
-            if self.vx > TILE_SIZE * 3 / 16 {
-                self.vx = TILE_SIZE * 3 / 16
+        self.freeze_timer -= 1;
+        if self.freeze_timer <= 0 {
+            if is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) {
+                self.vx -= TILE_SIZE / 16;
+                if self.wall_sliding > 0 {
+                    self.wall_sliding = 0
+                }
+                if self.vx < -TILE_SIZE * 3 / 16 {
+                    self.vx = -TILE_SIZE * 3 / 16
+                }
+            } else if is_key_down(KeyCode::Right) && !is_key_down(KeyCode::Left) {
+                self.vx += TILE_SIZE / 16;
+                if self.wall_sliding < 0 {
+                    self.wall_sliding = 0
+                }
+                if self.vx > TILE_SIZE * 3 / 16 {
+                    self.vx = TILE_SIZE * 3 / 16
+                }
             }
         }
-        if !is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) {
+
+        if !is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) && self.freeze_timer <= 0 {
             self.vx *= 11;
             self.vx /= 16;
         }
 
-        if is_key_down(KeyCode::Z) {
+        if is_key_down(KeyCode::Down) {
+            self.vy += TILE_SIZE / 16;
+        } else if is_key_down(KeyCode::Z) {
             self.vy += TILE_SIZE / 16 / 5;
         } else {
+            self.freeze_timer -= 5;
             self.vy += TILE_SIZE / 16 / 2;
         }
-
-        if self.grounded && is_key_down(KeyCode::Z) {
-            self.vy = -TILE_SIZE * 5 / 16;
-            self.grounded = false;
-        }
-
         // cap vx and vy at one tile per game step
         // in practice this will never be hit
         self.vx = self.vx.clamp(-TILE_SIZE, TILE_SIZE);
@@ -189,7 +293,41 @@ impl Object for Player {
         self.x += remaining_movement;
         if check_tilemap_collision(self.get_aabb(), tiles) {
             self.x -= remaining_movement;
+            self.freeze_timer = 0;
+            if (self.vx < 0 && is_key_down(KeyCode::Left))
+                || (self.vx > 0 && is_key_down(KeyCode::Right))
+            {
+                self.wall_sliding = self.vx.signum()
+            }
             self.vx = 0;
+        } else if remaining_movement.abs() > 0 {
+            self.wall_sliding = 0;
+        }
+
+        if self.wall_sliding != 0 {
+            self.vx = self.wall_sliding;
+            if is_key_down(KeyCode::Down) {
+                self.vy = self.vy.min(TILE_SIZE / 4);
+            } else {
+                self.vy = self.vy.min(TILE_SIZE / 32);
+            }
+            if is_key_pressed(KeyCode::Z) && !self.grounded {
+                self.grounded = false;
+                self.freeze_timer = 14;
+                if self.wall_sliding < 0 {
+                    self.vx = TILE_SIZE * 5 / 16;
+                    self.vy = -TILE_SIZE * 4 / 16;
+                } else if self.wall_sliding > 0 {
+                    self.vx = -TILE_SIZE * 5 / 16;
+                    self.vy = -TILE_SIZE * 4 / 16;
+                }
+                self.wall_sliding = 0;
+            }
+        }
+
+        if self.grounded && is_key_down(KeyCode::Z) {
+            self.vy = -TILE_SIZE * 5 / 16;
+            self.grounded = false;
         }
 
         // same but vertical
@@ -224,7 +362,7 @@ impl Object for Player {
             self.y / PIXEL_SIZE + off_y,
             TILE_PIXELS,
             TILE_PIXELS,
-            RED,
+            BLUE,
         );
     }
 
@@ -363,8 +501,8 @@ impl LevelRaw {
 }
 
 pub struct Level {
-    name: String,
-    tiles: Vec<Vec<Vec<Tile>>>,
+    pub name: String,
+    pub tiles: Vec<Vec<Vec<Tile>>>,
     objects: Vec<Box<dyn Object>>,
     pub side_exits: SideExits,
     pub side_offsets: SideOffsets,
@@ -437,6 +575,7 @@ impl Level {
             up: None,
             down: None,
         };
+        let mut door_exits = l.door_exits.iter();
 
         for layer in l.tiles.iter() {
             let mut l_tiles = vec![];
@@ -452,6 +591,8 @@ impl Level {
                                 vx: 0,
                                 vy: 0,
                                 grounded: false,
+                                freeze_timer: 0,
+                                wall_sliding: 0,
                             };
                             objects.push(Box::new(obj));
                             row_tiles.push(Tile::Empty);
@@ -467,6 +608,12 @@ impl Level {
                                 side_offsets.down = Some(x as i32 * TILE_SIZE)
                             }
                             row_tiles.push(Tile::Empty);
+                        }
+                        Tile::DoorGeneric => {
+                            let ind = door_exits
+                                .next()
+                                .expect("should have a corresponding door entrance");
+                            row_tiles.push(Tile::Door(*ind));
                         }
                         t => row_tiles.push(*t),
                     }

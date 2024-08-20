@@ -4,10 +4,12 @@ const PIXEL_SIZE: i32 = 256;
 const TILE_PIXELS: i32 = 16;
 const TILE_SIZE: i32 = TILE_PIXELS * PIXEL_SIZE;
 
-const SCREEN_WIDTH: i32 = 512;
-const SCREEN_HEIGHT: i32 = 384;
+const SCREEN_WIDTH: i32 = 384;
+const SCREEN_HEIGHT: i32 = 288;
 
 mod levels;
+use levels::Object;
+
 mod macros;
 
 fn window_conf() -> Conf {
@@ -63,6 +65,9 @@ async fn main() {
                 let d = level.dimensions();
                 if player_pos.0 < 0 && player_vel.0 < 0 {
                     if level.side_exits.left.is_some() {
+                        let old_sliding = level.player_obj().wall_sliding;
+                        let old_freeze = level.player_obj().freeze_timer;
+
                         let r_off_y = level.side_offsets.left.expect("should have an exit anchor");
                         let off_y = player_pos.1 - TILE_SIZE / 2 - r_off_y;
                         let new_x = player_pos.0 - TILE_SIZE / 2;
@@ -84,12 +89,16 @@ async fn main() {
                         // paused = true;
                         let p = level.player_obj();
 
+                        (p.freeze_timer, p.wall_sliding) = (old_freeze, old_sliding);
                         p.x = new_x + new_off_x;
                         p.y = new_off_y + off_y;
                         (p.vx, p.vy) = player_vel
                     }
                 } else if player_pos.0 > d.0 * TILE_SIZE && player_vel.0 > 0 {
                     if level.side_exits.right.is_some() {
+                        let old_sliding = level.player_obj().wall_sliding;
+                        let old_freeze = level.player_obj().freeze_timer;
+
                         let r_off_y = level
                             .side_offsets
                             .right
@@ -110,21 +119,99 @@ async fn main() {
 
                         let p = level.player_obj();
 
+                        (p.freeze_timer, p.wall_sliding) = (old_freeze, old_sliding);
                         p.x = new_x;
                         p.y = new_off_y + off_y;
                         (p.vx, p.vy) = player_vel;
-
-                        println!(
-                            "{}, {}, {}, {}",
-                            p.x / TILE_SIZE,
-                            p.y / TILE_SIZE,
-                            p.vx,
-                            p.vy
-                        )
                     }
                 } else if player_pos.1 < 0 && player_vel.1 < 0 {
-                    // handle vertical exits later
-                } else if player_pos.1 > d.1 * TILE_SIZE && player_vel.1 > 1 {
+                    let old_sliding = level.player_obj().wall_sliding;
+                    let old_freeze = level.player_obj().freeze_timer;
+
+                    let r_off_x = level.side_offsets.up.expect("should have an exit anchor");
+                    let off_x = player_pos.0 - TILE_SIZE / 2 - r_off_x;
+                    let new_y = player_pos.1 - TILE_SIZE / 2;
+
+                    let level_raw = levelset.levels[level.side_exits.up.expect("is some")].clone();
+
+                    current_ind = level.side_exits.up.expect("is some");
+                    level = levels::Level::from_level_raw(level_raw);
+                    let new_off_x = level.side_offsets.down.expect("should have an exit anchor");
+                    let new_off_y = level.dimensions().1 * TILE_SIZE;
+
+                    render_off_y -= (level.dimensions().1 * TILE_PIXELS) as f32;
+                    render_off_x -= ((new_off_x - r_off_x) / PIXEL_SIZE) as f32;
+
+                    // paused = true;
+                    let p = level.player_obj();
+
+                    (p.freeze_timer, p.wall_sliding) = (old_freeze, old_sliding);
+                    p.y = new_y + new_off_y;
+                    p.x = new_off_x + off_x;
+                    (p.vx, p.vy) = player_vel
+                } else if player_pos.1 > d.1 * TILE_SIZE && player_vel.1 > 0 {
+                    let old_sliding = level.player_obj().wall_sliding;
+                    let old_freeze = level.player_obj().freeze_timer;
+
+                    let r_off_x = level.side_offsets.down.expect("should have an exit anchor");
+                    let off_x = player_pos.0 - TILE_SIZE / 2 - r_off_x;
+                    let new_y = player_pos.1 - TILE_SIZE / 2 - level.dimensions().1 * TILE_SIZE;
+
+                    let level_raw =
+                        levelset.levels[level.side_exits.down.expect("is some")].clone();
+
+                    current_ind = level.side_exits.down.expect("is some");
+                    level = levels::Level::from_level_raw(level_raw);
+                    let new_off_x = level.side_offsets.up.expect("should have an exit anchor");
+
+                    render_off_y += (d.1 * TILE_PIXELS) as f32;
+                    render_off_x -= ((new_off_x - r_off_x) / PIXEL_SIZE) as f32;
+
+                    // paused = true;
+                    let p = level.player_obj();
+
+                    (p.freeze_timer, p.wall_sliding) = (old_freeze, old_sliding);
+                    p.y = new_y;
+                    p.x = new_off_x + off_x;
+                    (p.vx, p.vy) = player_vel
+                } else if is_key_pressed(KeyCode::Up) {
+                    let p_obj = level.player_obj();
+                    let grounded = p_obj.grounded;
+                    let aabb = (p_obj as &mut dyn Object).get_aabb();
+
+                    let doors = levels::check_door(aabb, &level.tiles);
+
+                    if let Some(levels::Tile::Door(index)) = doors {
+                        if grounded {
+                            println!("we should be going to {}", index);
+
+                            let level_raw = levelset.levels[index].clone();
+
+                            let old_ind = current_ind;
+                            current_ind = index;
+                            level = levels::Level::from_level_raw(level_raw);
+
+                            let p_pos = levels::find_door(old_ind, &level.tiles);
+                            if let Some((x, y)) = p_pos {
+                                let p_obj = level.player_obj();
+
+                                (p_obj.x, p_obj.y) = (x * TILE_SIZE, y * TILE_SIZE);
+                            }
+
+                            let new_d = level.dimensions();
+
+                            render_off_x = (SCREEN_WIDTH / 2 - new_d.0 * TILE_PIXELS / 2) as f32;
+                            render_off_y = (SCREEN_HEIGHT / 2 - new_d.1 * TILE_PIXELS / 2) as f32;
+                        }
+                    }
+                } else {
+                    let p_obj = level.player_obj();
+                    let aabb = (p_obj as &mut dyn Object).get_aabb();
+
+                    if levels::check_tilemap_death(aabb, &level.tiles) {
+                        let level_raw = levelset.levels[current_ind].clone();
+                        level = levels::Level::from_level_raw(level_raw);
+                    }
                 }
             }
         }
@@ -204,6 +291,19 @@ async fn main() {
         );
 
         level.draw(render_off_x as i32, render_off_y as i32);
+
+        draw_rectangle(
+            0.,
+            SCREEN_HEIGHT as f32 - 16.,
+            SCREEN_WIDTH as f32,
+            16.,
+            color_u8!(0, 0, 0, 191),
+        );
+
+        let x = (SCREEN_WIDTH - level.name.len() as i32 * 8) / 2;
+
+        draw_text(&level.name, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
+
         next_frame().await;
     }
 }
