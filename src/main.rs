@@ -9,8 +9,8 @@ const TILE_SIZE: i32 = TILE_PIXELS * PIXEL_SIZE;
 const MAX_PLAYER_SPEED: i32 = TILE_SIZE * 3 / 16;
 const PLAYER_ACCEL: i32 = TILE_SIZE / 16;
 
-const SCREEN_WIDTH: i32 = 512;
-const SCREEN_HEIGHT: i32 = 384;
+const SCREEN_WIDTH: i32 = 640;
+const SCREEN_HEIGHT: i32 = 360;
 
 mod levels;
 use levels::Object;
@@ -108,16 +108,19 @@ async fn main() {
                 clear_background(BLACK);
                 match menu_state {
                     MenuState::Main(ind) => {
-                        draw_text("main menu", 4., 12., 16., WHITE);
-                        draw_text(
-                            &format!("{}play", if *ind == 0 { "> " } else { "" }),
-                            4.,
-                            28.,
-                            16.,
-                            WHITE,
-                        );
+                        draw_text("main menu (temporary)", 4., 12., 16., WHITE);
 
-                        if is_key_pressed(KeyCode::Down) && *ind < 0 {
+                        for (i, o) in ["play", "quit"].iter().enumerate() {
+                            draw_text(
+                                &format!("{}{}", if *ind == i { "> " } else { "  " }, o),
+                                4.,
+                                28. + 16. * i as f32,
+                                16.,
+                                WHITE,
+                            );
+                        }
+
+                        if is_key_pressed(KeyCode::Down) && *ind < 1 {
                             *ind += 1
                         }
                         if is_key_pressed(KeyCode::Up) && *ind > 0 {
@@ -127,6 +130,7 @@ async fn main() {
                         if is_key_pressed(KeyCode::Z) {
                             match ind {
                                 0 => *menu_state = MenuState::LevelsetSelect(0),
+                                1 => panic!("user closed game"),
                                 _ => (),
                             }
                         }
@@ -136,7 +140,7 @@ async fn main() {
 
                         for (i, l) in levelsets.iter().enumerate() {
                             draw_text(
-                                &format!("{}{}", if *ind == 0 { "> " } else { "" }, l),
+                                &format!("{}{}", if *ind == 0 { "> " } else { "  " }, l),
                                 4.,
                                 28. + 16. * i as f32,
                                 16.,
@@ -144,7 +148,7 @@ async fn main() {
                             );
                         }
 
-                        if is_key_pressed(KeyCode::Down) && *ind < 0 {
+                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() - 1 {
                             *ind += 1
                         }
                         if is_key_pressed(KeyCode::Up) && *ind > 0 {
@@ -154,7 +158,7 @@ async fn main() {
                         if is_key_pressed(KeyCode::Z) {
                             let levelset =
                                 levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
-                            let mut current_ind = 0;
+                            let current_ind = 0; // we assume the first level is index 0
 
                             let level_raw = levelset.levels[current_ind].clone();
                             let level = levels::Level::from_level_raw(level_raw);
@@ -165,8 +169,7 @@ async fn main() {
                                 level,
                             }
                         }
-                    }
-                    _ => (),
+                    } // _ => (),
                 }
             }
             State::Game {
@@ -174,7 +177,7 @@ async fn main() {
                 current_ind,
                 level,
             } => {
-                if is_key_pressed(KeyCode::P) {
+                if is_key_pressed(KeyCode::Escape) {
                     paused = !paused
                 }
                 if !paused {
@@ -374,36 +377,37 @@ async fn main() {
                         for (_, is_pressed) in keys_pressed.iter_mut() {
                             *is_pressed = false
                         }
+
+                        let d = level.dimensions();
+                        let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
+                            (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
+                        } else {
+                            let p_pos = level.focus_position().0;
+                            let p_pos = p_pos + level.player_vel().0 * 8;
+                            if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
+                                0.
+                            } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
+                                -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
+                            } else {
+                                -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
+                            }
+                        };
+                        let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
+                            (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
+                        } else {
+                            let p_pos = level.focus_position().1;
+                            let p_pos = p_pos + level.player_vel().1 * 8;
+                            if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
+                                0.
+                            } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
+                                -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
+                            } else {
+                                -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
+                            }
+                        };
+                        render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
+                        render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
                     }
-                    let d = level.dimensions();
-                    let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
-                        (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
-                    } else {
-                        let p_pos = level.focus_position().0;
-                        let p_pos = p_pos + level.player_vel().0 * 5;
-                        if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
-                            0.
-                        } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
-                            -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
-                        } else {
-                            -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
-                        }
-                    };
-                    let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
-                        (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
-                    } else {
-                        let p_pos = level.focus_position().1;
-                        let p_pos = p_pos + level.player_vel().1 * 5;
-                        if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
-                            0.
-                        } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
-                            -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
-                        } else {
-                            -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
-                        }
-                    };
-                    render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
-                    render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
                 }
 
                 // draw_rectangle(255., 191., 2., 2., BLUE);
@@ -480,8 +484,24 @@ async fn main() {
                     16.,
                     WHITE,
                 );
-            }
-            _ => (),
+
+                if paused {
+                    draw_rectangle(
+                        0.,
+                        0.,
+                        SCREEN_WIDTH as f32,
+                        SCREEN_HEIGHT as f32,
+                        color_u8!(0, 0, 0, 192),
+                    );
+
+                    draw_text("paused !!", 4., 12., 16., WHITE);
+                    draw_text("q to quit", 4., 28., 16., WHITE);
+
+                    if is_key_pressed(KeyCode::Q) {
+                        state = State::Menu(MenuState::Main(0))
+                    }
+                }
+            } // _ => (),
         }
 
         next_frame().await;
