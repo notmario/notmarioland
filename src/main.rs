@@ -17,6 +17,16 @@ use levels::Object;
 
 mod macros;
 
+enum MenuState {
+    Main(usize),
+    LevelsetSelect(usize),
+}
+
+enum State {
+    Menu(MenuState),
+    Game,
+}
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "notmarioland".to_owned(),
@@ -32,6 +42,35 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
+
+    let levelsets: Vec<String> = std::fs::read_dir("levels/")
+        .expect("directory should exist")
+        .filter_map(|f| {
+            if !f.is_ok() {
+                return None;
+            }
+            let a = f.as_ref().expect("is ok").path();
+            let a = a
+                .to_str()
+                .unwrap()
+                .strip_prefix("levels/")
+                .expect("we know it starts with levels/");
+
+            let t_path = format!(
+                "{}/levels.levelset",
+                f.expect("is ok")
+                    .path()
+                    .to_str()
+                    .expect("path should be string")
+            );
+            if std::fs::read(t_path.clone()).is_err() {
+                println!("{}", t_path);
+                return None;
+            }
+            println!("found levelset {:?}", a);
+            Some(a.to_string())
+        })
+        .collect();
 
     let preload_textures = ["assets/player.png"];
 

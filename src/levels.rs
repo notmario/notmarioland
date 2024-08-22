@@ -866,6 +866,7 @@ fn load_level(path: &str) -> LevelRaw {
 }
 
 pub struct Levelset {
+    pub name: String,
     pub levels: Vec<LevelRaw>,
 }
 
@@ -875,8 +876,12 @@ pub fn load_levelset(path: &str) -> Levelset {
 
     println!("{}", levelset_file);
 
+    let mut parts = levelset_file.split("\n===\n");
+
+    let name = parts.next().expect("should have part").to_string();
+
     let mut levels = vec![];
-    for l in levelset_file.lines() {
+    for l in parts.next().expect("should have part").lines() {
         let l = l.trim();
 
         println!("reading {}/{}.lvl", path, l);
@@ -884,5 +889,5 @@ pub fn load_levelset(path: &str) -> Levelset {
         levels.push(load_level(&format!("{}/{}.lvl", path, l)));
     }
 
-    Levelset { levels }
+    Levelset { name, levels }
 }
