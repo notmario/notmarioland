@@ -7,6 +7,30 @@ fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, c)
 }
 
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+impl Direction {
+    fn h_vel(v: i32) -> Self {
+        if v < 0 {
+            Self::Left
+        } else {
+            Self::Right
+        }
+    }
+    fn v_vel(v: i32) -> Self {
+        if v <= 0 {
+            Self::Up
+        } else {
+            Self::Down
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Tile {
     Empty,
@@ -28,15 +52,28 @@ pub enum Tile {
     ExitAnchor,
 
     Spikes,
+
+    OneWayLeft,
+    OneWayRight,
+    OneWayUp,
+    OneWayDown,
 }
 
 impl Tile {
-    pub fn is_solid(&self) -> bool {
+    pub fn is_solid(&self, b_box: AABB, _c_box: AABB, my_aabb: AABB, direction: Direction) -> bool {
         match self {
             Self::Wall => true,
             Self::Wall2 => true,
             Self::Wall3 => true,
             Self::Wall4 => true,
+
+            // note. the directions are seemingly reversed here
+            // this is because "left" refers to it being on the left of the block
+            // and it should thus block if you're going right
+            Self::OneWayLeft => (b_box.x + b_box.w <= my_aabb.x) && direction == Direction::Right,
+            Self::OneWayRight => (b_box.x >= my_aabb.x + my_aabb.w) && direction == Direction::Left,
+            Self::OneWayUp => (b_box.y + b_box.h <= my_aabb.y) && direction == Direction::Down,
+            Self::OneWayDown => (b_box.y >= my_aabb.y + my_aabb.h) && direction == Direction::Up,
 
             _ => false,
         }
@@ -63,6 +100,10 @@ impl Tile {
             "player" => Self::Player,
             "exit_anchor" => Self::ExitAnchor,
             "spikes" => Self::Spikes,
+            "onewayleft" => Self::OneWayLeft,
+            "onewayright" => Self::OneWayRight,
+            "onewaydown" => Self::OneWayDown,
+            "onewayup" => Self::OneWayUp,
             _ => Self::Empty,
         }
     }
@@ -76,12 +117,29 @@ impl Tile {
                 draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BROWN)
             }
             Self::Spikes => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, RED),
+            Self::OneWayLeft => draw_rect_i32(x, y, TILE_PIXELS / 8, TILE_PIXELS, BLACK),
+            Self::OneWayUp => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS / 8, BLACK),
+            Self::OneWayRight => draw_rect_i32(
+                x + TILE_PIXELS * 7 / 8,
+                y,
+                TILE_PIXELS / 8,
+                TILE_PIXELS,
+                BLACK,
+            ),
+            Self::OneWayDown => draw_rect_i32(
+                x,
+                y + TILE_PIXELS * 7 / 8,
+                TILE_PIXELS,
+                TILE_PIXELS / 8,
+                BLACK,
+            ),
             // _ => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, MAGENTA),
             _ => (),
         }
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct AABB {
     x: i32,
     y: i32,
@@ -89,16 +147,39 @@ pub struct AABB {
     h: i32,
 }
 
-impl AABB {
-    fn intersect(&self, other: &Self) -> bool {
-        self.x <= other.x + other.w
-            && self.x + self.w >= other.x
-            && self.y <= other.y + other.h
-            && self.y + self.h >= other.w
-    }
-}
+// commented out so the compiler shuts up
 
-fn check_tilemap_collision(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
+// impl AABB {
+//     fn intersect(&self, other: &Self) -> bool {
+//         self.x < other.x + other.w
+//             && self.x + self.w > other.x
+//             && self.y < other.y + other.h
+//             && self.y + self.h > other.w
+//     }
+//     fn smaller_by(&self, amt: i32) -> Self {
+//         AABB {
+//             x: self.x + amt,
+//             y: self.y + amt,
+//             w: self.w - amt * 2,
+//             h: self.h - amt * 2,
+//         }
+//     }
+//     fn shift_by(&self, off: (i32, i32)) -> Self {
+//         AABB {
+//             x: self.x + off.0,
+//             y: self.y + off.1,
+//             w: self.w,
+//             h: self.h,
+//         }
+//     }
+// }
+
+fn check_tilemap_collision(
+    b_box: AABB,
+    c_box: AABB,
+    map: &Vec<Vec<Vec<Tile>>>,
+    direction: Direction,
+) -> bool {
     let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
     let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
 
@@ -120,8 +201,14 @@ fn check_tilemap_collision(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
                 continue;
             }
             let (tx, ty) = (tx as usize, ty as usize);
+            let my_aabb = AABB {
+                x: tx as i32 * TILE_SIZE,
+                y: ty as i32 * TILE_SIZE,
+                w: TILE_SIZE,
+                h: TILE_SIZE,
+            };
             for l in map {
-                if l[ty][tx].is_solid() {
+                if l[ty][tx].is_solid(b_box, c_box, my_aabb, direction) {
                     return true;
                 }
             }
@@ -313,6 +400,8 @@ impl Object for Player {
         // horizontal movement
         // move to tile boundary if we are moving too fast
 
+        let before_aabb = self.get_aabb();
+
         let remaining_movement = if (self.x + self.vx) / TILE_SIZE != self.x / TILE_SIZE {
             let old_pos = self.x;
             if self.vx < 0 {
@@ -328,7 +417,12 @@ impl Object for Player {
         // now we are aligned at tile boundary, do remaining movement,
         // then step back if we are then colliding
         self.x += remaining_movement;
-        if check_tilemap_collision(self.get_aabb(), tiles) {
+        if check_tilemap_collision(
+            before_aabb,
+            self.get_aabb(),
+            tiles,
+            Direction::h_vel(self.vx),
+        ) {
             self.x -= remaining_movement;
             self.freeze_timer = 0;
             if (self.vx < 0 && is_key_down(KeyCode::Left))
@@ -380,13 +474,18 @@ impl Object for Player {
         if self.wall_sliding == 0 {
             self.air_frames += 1;
         }
+        if is_key_down(KeyCode::Down) {
+            self.air_frames += 15
+        }
         if self.air_frames > 15 {
             self.grounded = false
         }
 
+        let before_aabb = self.get_aabb();
+
         let remaining_movement = if (self.y + self.vy) / TILE_SIZE != self.y / TILE_SIZE {
             let old_pos = self.y;
-            if self.vy < 0 {
+            if (self.y % TILE_SIZE) * 2 < TILE_SIZE {
                 self.y = self.y / TILE_SIZE * TILE_SIZE;
             } else {
                 self.y = (self.y / TILE_SIZE + 1) * TILE_SIZE;
@@ -395,13 +494,19 @@ impl Object for Player {
         } else {
             self.vy
         };
+
         self.y += remaining_movement;
-        if check_tilemap_collision(self.get_aabb(), tiles) {
+        if check_tilemap_collision(
+            before_aabb,
+            self.get_aabb(),
+            tiles,
+            Direction::v_vel(self.vy),
+        ) {
             self.y -= remaining_movement;
             if self.vy > 0 {
                 // going down, we have just landed
                 self.grounded = true;
-                self.vy = 1;
+                self.vy = 0;
                 self.air_frames = 0;
             } else {
                 self.vy = PIXEL_SIZE;

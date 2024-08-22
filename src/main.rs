@@ -163,6 +163,10 @@ async fn main() {
                             let level_raw = levelset.levels[current_ind].clone();
                             let level = levels::Level::from_level_raw(level_raw);
 
+                            paused = false;
+                            render_off_x = 0.;
+                            render_off_y = 0.;
+
                             state = State::Game {
                                 levelset,
                                 current_ind,
