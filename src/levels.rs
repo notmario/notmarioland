@@ -266,15 +266,19 @@ impl Object for Player {
                 if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx > -MAX_PLAYER_SPEED {
+                if self.vx >= -MAX_PLAYER_SPEED {
                     self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL);
+                } else {
+                    self.vx += TILE_SIZE / 128;
                 }
             } else if is_key_down(KeyCode::Right) && !is_key_down(KeyCode::Left) {
                 if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx < MAX_PLAYER_SPEED {
+                if self.vx <= MAX_PLAYER_SPEED {
                     self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL);
+                } else {
+                    self.vx -= TILE_SIZE / 128;
                 }
             }
         }
@@ -872,7 +876,7 @@ pub struct Levelset {
 
 pub fn load_levelset(path: &str) -> Levelset {
     let levelset_file = std::fs::read_to_string(format!("{}/levels.levelset", path)).unwrap();
-    let levelset_file = levelset_file.trim();
+    let levelset_file = levelset_file.trim().replace("\r\n", "\n");
 
     println!("{}", levelset_file);
 

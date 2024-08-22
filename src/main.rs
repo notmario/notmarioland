@@ -390,9 +390,9 @@ async fn main() {
         let g = level.player_obj().air_frames;
         draw_text(
             &format!(
-                "h {:0>4} v {:0>4} g {}",
-                vel.0.abs(),
-                vel.1.abs(),
+                "h {:0>3} v {:0>3} g {}",
+                vel.0.abs() / 16,
+                vel.1.abs() / 16,
                 (15 - g).max(0)
             ),
             2.,
