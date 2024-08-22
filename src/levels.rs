@@ -11,8 +11,16 @@ fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
 pub enum Tile {
     Empty,
     Player,
-    BackWall,
+
     Wall,
+    Wall2,
+    Wall3,
+    Wall4,
+
+    BackWall,
+    BackWall2,
+    BackWall3,
+    BackWall4,
 
     DoorGeneric,
     Door(usize),
@@ -26,6 +34,10 @@ impl Tile {
     pub fn is_solid(&self) -> bool {
         match self {
             Self::Wall => true,
+            Self::Wall2 => true,
+            Self::Wall3 => true,
+            Self::Wall4 => true,
+
             _ => false,
         }
     }
@@ -40,9 +52,15 @@ impl Tile {
     pub fn from_string(s: &str) -> Self {
         match s {
             "wall" => Self::Wall,
-            "player" => Self::Player,
+            "wall2" => Self::Wall2,
+            "wall3" => Self::Wall3,
+            "wall4" => Self::Wall4,
             "backwall" => Self::BackWall,
+            "backwall2" => Self::BackWall2,
+            "backwall3" => Self::BackWall3,
+            "backwall4" => Self::BackWall4,
             "door" => Self::DoorGeneric,
+            "player" => Self::Player,
             "exit_anchor" => Self::ExitAnchor,
             "spikes" => Self::Spikes,
             _ => Self::Empty,
@@ -316,6 +334,9 @@ impl Object for Player {
             }
             self.vx = 0;
         } else if remaining_movement.abs() > 0 {
+            if self.wall_sliding != 0 {
+                self.vx = -self.vx.signum() * 4;
+            }
             self.wall_sliding = 0;
         }
 
