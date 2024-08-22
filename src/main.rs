@@ -256,41 +256,39 @@ async fn main() {
                     *is_pressed = false
                 }
             }
+            let d = level.dimensions();
+            let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
+                (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
+            } else {
+                let p_pos = level.focus_position().0;
+                let p_pos = p_pos + level.player_vel().0 * 5;
+                if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
+                    0.
+                } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
+                    -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
+                } else {
+                    -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
+                }
+            };
+            let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
+                (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
+            } else {
+                let p_pos = level.focus_position().1;
+                let p_pos = p_pos + level.player_vel().1 * 5;
+                if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
+                    0.
+                } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
+                    -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
+                } else {
+                    -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
+                }
+            };
+            render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
+            render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
         }
 
         // draw_rectangle(255., 191., 2., 2., BLUE);
-
         let d = level.dimensions();
-        let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
-            (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
-        } else {
-            let p_pos = level.focus_position().0;
-            let p_pos = p_pos + level.player_vel().0 * 3 / 2;
-            if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
-                0.
-            } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
-                -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
-            } else {
-                -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
-            }
-        };
-        let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
-            (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
-        } else {
-            let p_pos = level.focus_position().1;
-            let p_pos = p_pos + level.player_vel().1 * 3 / 2;
-            if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
-                0.
-            } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
-                -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
-            } else {
-                -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
-            }
-        };
-        if !paused {
-            render_off_x = (render_off_x * 15. + t_r_o_x) / 16.;
-            render_off_y = (render_off_y * 15. + t_r_o_y) / 16.;
-        }
         // draw the rest of the level as well!!
         levelset.levels[current_ind].propagate_draw(
             render_off_x as i32,
@@ -353,7 +351,7 @@ async fn main() {
         let g = level.player_obj().air_frames;
         draw_text(
             &format!(
-                "h {:0>5} v {:0>4} g {}",
+                "h {:0>4} v {:0>4} g {}",
                 vel.0.abs(),
                 vel.1.abs(),
                 (15 - g).max(0)
