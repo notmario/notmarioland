@@ -222,6 +222,8 @@ pub struct Player {
 
     pub freeze_timer: i32,
     pub wall_sliding: i32,
+
+    pub air_frames: i32,
 }
 
 impl Object for Player {
@@ -243,20 +245,18 @@ impl Object for Player {
         self.freeze_timer -= 1;
         if self.freeze_timer <= 0 {
             if is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) {
-                self.vx -= PLAYER_ACCEL;
                 if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx < -MAX_PLAYER_SPEED {
-                    self.vx = -MAX_PLAYER_SPEED
+                if self.vx > -MAX_PLAYER_SPEED {
+                    self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL);
                 }
             } else if is_key_down(KeyCode::Right) && !is_key_down(KeyCode::Left) {
-                self.vx += PLAYER_ACCEL;
-                if self.wall_sliding < 0 {
+                if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
-                if self.vx > MAX_PLAYER_SPEED {
-                    self.vx = MAX_PLAYER_SPEED
+                if self.vx < MAX_PLAYER_SPEED {
+                    self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL);
                 }
             }
         }
@@ -265,8 +265,11 @@ impl Object for Player {
             self.vx *= 11;
             self.vx /= 16;
             self.anim_timer = 0;
+            if self.wall_sliding != 0 {
+                self.vx = self.wall_sliding;
+            }
         } else {
-            self.anim_timer += 1;
+            self.anim_timer += self.vx.abs() / PLAYER_ACCEL;
         }
 
         if is_key_down(KeyCode::Down) {
@@ -348,6 +351,14 @@ impl Object for Player {
 
         // same but vertical
 
+        // allow for the player to store grounded value while wall sliding
+        if self.wall_sliding == 0 {
+            self.air_frames += 1;
+        }
+        if self.air_frames > 15 {
+            self.grounded = false
+        }
+
         let remaining_movement = if (self.y + self.vy) / TILE_SIZE != self.y / TILE_SIZE {
             let old_pos = self.y;
             if self.vy < 0 {
@@ -366,6 +377,7 @@ impl Object for Player {
                 // going down, we have just landed
                 self.grounded = true;
                 self.vy = 1;
+                self.air_frames = 0;
             } else {
                 self.vy = PIXEL_SIZE;
             }
@@ -403,13 +415,13 @@ impl Object for Player {
                 draw_offset = (0, 0)
             }
         } else if is_key_down(KeyCode::Left) {
-            if self.anim_timer % 24 < 16 {
+            if self.anim_timer % 64 < 43 {
                 draw_offset = (0, 32)
             } else {
                 draw_offset = (16, 32)
             }
         } else if is_key_down(KeyCode::Right) {
-            if self.anim_timer % 24 < 16 {
+            if self.anim_timer % 64 < 43 {
                 draw_offset = (0, 16)
             } else {
                 draw_offset = (16, 16)
@@ -697,6 +709,7 @@ impl Level {
                                 freeze_timer: 0,
                                 wall_sliding: 0,
                                 anim_timer: 0,
+                                air_frames: 0,
                             };
                             objects.push(Box::new(obj));
                             row_tiles.push(Tile::Empty);

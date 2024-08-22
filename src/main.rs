@@ -265,6 +265,7 @@ async fn main() {
             (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
         } else {
             let p_pos = level.focus_position().0;
+            let p_pos = p_pos + level.player_vel().0 * 3 / 2;
             if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
                 0.
             } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
@@ -277,6 +278,7 @@ async fn main() {
             (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
         } else {
             let p_pos = level.focus_position().1;
+            let p_pos = p_pos + level.player_vel().1 * 3 / 2;
             if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
                 0.
             } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
@@ -348,8 +350,14 @@ async fn main() {
         draw_text(&level.name, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
 
         let vel = level.player_vel();
+        let g = level.player_obj().air_frames;
         draw_text(
-            &format!("h {} v {}", vel.0, vel.1),
+            &format!(
+                "h {:0>5} v {:0>4} g {}",
+                vel.0.abs(),
+                vel.1.abs(),
+                (15 - g).max(0)
+            ),
             2.,
             SCREEN_HEIGHT as f32 - 4.,
             16.,
