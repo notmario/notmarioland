@@ -564,13 +564,16 @@ impl LevelRaw {
         if !skip_actually_drawing {
             self.draw(off_x, off_y, textures)
         }
-        if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("balls")) {
-            let ind = self.exits.left.expect("balls");
+        if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
+            let ind = self.exits.left.expect("is some");
             seen.push(ind);
 
             let offset = levels[ind].tiles[0][0].len() as i32 * TILE_PIXELS;
-            let perp_offset = (self.side_offsets().left.expect("balls")
-                - levels[ind].side_offsets().right.expect("balls"))
+            let perp_offset = (self.side_offsets().left.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .right
+                    .expect("corresponding should have exit anchor"))
                 / PIXEL_SIZE;
 
             levels[ind].propagate_draw(
@@ -582,13 +585,16 @@ impl LevelRaw {
                 textures,
             );
         };
-        if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("balls")) {
-            let ind = self.exits.right.expect("balls");
+        if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
+            let ind = self.exits.right.expect("is some");
             seen.push(ind);
 
             let offset = self.tiles[0][0].len() as i32 * TILE_PIXELS;
-            let perp_offset = (self.side_offsets().right.expect("balls")
-                - levels[ind].side_offsets().left.expect("balls"))
+            let perp_offset = (self.side_offsets().right.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .left
+                    .expect("corresponding should have exit anchor"))
                 / PIXEL_SIZE;
 
             levels[ind].propagate_draw(
@@ -600,13 +606,16 @@ impl LevelRaw {
                 textures,
             );
         };
-        if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("balls")) {
-            let ind = self.exits.up.expect("balls");
+        if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
+            let ind = self.exits.up.expect("is some");
             seen.push(ind);
 
             let offset = levels[ind].tiles[0].len() as i32 * TILE_PIXELS;
-            let perp_offset = (self.side_offsets().up.expect("balls")
-                - levels[ind].side_offsets().down.expect("balls"))
+            let perp_offset = (self.side_offsets().up.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .down
+                    .expect("corresponding should have exit anchor"))
                 / PIXEL_SIZE;
 
             levels[ind].propagate_draw(
@@ -618,13 +627,16 @@ impl LevelRaw {
                 textures,
             );
         };
-        if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("balls")) {
-            let ind = self.exits.down.expect("balls");
+        if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
+            let ind = self.exits.down.expect("is some");
             seen.push(ind);
 
             let offset = self.tiles[0].len() as i32 * TILE_PIXELS;
-            let perp_offset = (self.side_offsets().down.expect("balls")
-                - levels[ind].side_offsets().up.expect("balls"))
+            let perp_offset = (self.side_offsets().down.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .up
+                    .expect("corresponding should have exit anchor"))
                 / PIXEL_SIZE;
 
             levels[ind].propagate_draw(
@@ -682,7 +694,7 @@ impl Level {
                 return player;
             }
         }
-        panic!("erm")
+        panic!("we should have a player! if we don't something has gone very wrong")
     }
     pub fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
         for layer in self.tiles.iter() {
@@ -782,7 +794,7 @@ fn load_level(path: &str) -> LevelRaw {
 
     let mut parts = level_contents.split("\n===\n");
 
-    let name = parts.next().expect("balls").to_string();
+    let name = parts.next().expect("should have part").to_string();
 
     let tilemap: HashMap<char, Tile> = parts
         .next()
@@ -815,7 +827,7 @@ fn load_level(path: &str) -> LevelRaw {
         };
         let mut door_exits = vec![];
 
-        for l in parts.next().expect("balls").lines() {
+        for l in parts.next().expect("should have part").lines() {
             let mut halves = l.split(":");
             let left_half = halves.next().expect("should have two halves").trim();
 
