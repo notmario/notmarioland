@@ -7,6 +7,20 @@ fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, c)
 }
 
+pub struct GlobalState {
+    pub changed_tiles: HashMap<(usize, usize, usize, usize), Tile>,
+    pub keys: (i32, i32, i32, i32, i32, i32),
+}
+
+impl GlobalState {
+    pub fn new() -> Self {
+        GlobalState {
+            changed_tiles: HashMap::new(),
+            keys: (0, 0, 0, 0, 0, 0),
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Direction {
     Up,
@@ -644,11 +658,18 @@ impl LevelRaw {
         }
         side_offsets
     }
-    pub fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
-        for layer in self.tiles.iter() {
+    pub fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        my_ind: usize,
+        subs: &HashMap<(usize, usize, usize, usize), Tile>,
+        textures: &mut HashMap<String, Texture2D>,
+    ) {
+        for (la, layer) in self.tiles.iter().enumerate() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {
-                    tile.draw(
+                    subs.get(&(my_ind, la, y, x)).unwrap_or(tile).draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
                         textures,
@@ -663,11 +684,13 @@ impl LevelRaw {
         off_y: i32,
         levels: &Vec<LevelRaw>,
         seen: &mut Vec<usize>,
+        my_ind: usize,
+        subs: &HashMap<(usize, usize, usize, usize), Tile>,
         skip_actually_drawing: bool,
         textures: &mut HashMap<String, Texture2D>,
     ) {
         if !skip_actually_drawing {
-            self.draw(off_x, off_y, textures)
+            self.draw(off_x, off_y, my_ind, subs, textures)
         }
         if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
             let ind = self.exits.left.expect("is some");
@@ -686,6 +709,8 @@ impl LevelRaw {
                 off_y + perp_offset,
                 levels,
                 seen,
+                ind,
+                subs,
                 false,
                 textures,
             );
@@ -707,6 +732,8 @@ impl LevelRaw {
                 off_y + perp_offset,
                 levels,
                 seen,
+                ind,
+                subs,
                 false,
                 textures,
             );
@@ -728,6 +755,8 @@ impl LevelRaw {
                 off_y - offset,
                 levels,
                 seen,
+                ind,
+                subs,
                 false,
                 textures,
             );
@@ -749,6 +778,8 @@ impl LevelRaw {
                 off_y + offset,
                 levels,
                 seen,
+                ind,
+                subs,
                 false,
                 textures,
             );
@@ -823,7 +854,11 @@ impl Level {
         }
     }
 
-    pub fn from_level_raw(l: LevelRaw) -> Self {
+    pub fn from_level_raw(
+        l: LevelRaw,
+        my_ind: usize,
+        subs: &HashMap<(usize, usize, usize, usize), Tile>,
+    ) -> Self {
         let mut tiles = vec![];
         let mut objects: Vec<Box<dyn Object>> = vec![];
         let mut side_offsets = SideOffsets {
@@ -834,13 +869,13 @@ impl Level {
         };
         let mut door_exits = l.door_exits.iter();
 
-        for layer in l.tiles.iter() {
+        for (la, layer) in l.tiles.iter().enumerate() {
             let mut l_tiles = vec![];
 
             for (y, row) in layer.iter().enumerate() {
                 let mut row_tiles = vec![];
                 for (x, tile) in row.iter().enumerate() {
-                    match tile {
+                    match subs.get(&(my_ind, la, y, x)).unwrap_or(tile) {
                         Tile::Player => {
                             let obj = Player {
                                 x: x as i32 * TILE_SIZE,

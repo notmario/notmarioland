@@ -29,6 +29,7 @@ enum State {
         levelset: Option<levels::Levelset>,
         current_ind: usize,
         level: levels::Level,
+        global_state: levels::GlobalState,
     },
     Edit {
         levelset: String,
@@ -170,7 +171,8 @@ async fn main() {
                                 let current_ind = 0; // we assume the first level is index 0
 
                                 let level_raw = levelset.levels[current_ind].clone();
-                                let level = levels::Level::from_level_raw(level_raw);
+                                let level =
+                                    levels::Level::from_level_raw(level_raw, 0, &HashMap::new());
 
                                 paused = false;
                                 render_off_x = 0.;
@@ -180,6 +182,7 @@ async fn main() {
                                     levelset: Some(levelset),
                                     current_ind,
                                     level,
+                                    global_state: levels::GlobalState::new(),
                                 }
                             }
                         } else if is_key_pressed(KeyCode::Escape) {
@@ -215,22 +218,6 @@ async fn main() {
                             } else if *ind == levelsets.len() + 1 {
                                 *menu_state = MenuState::Main(0);
                             } else {
-                                let levelset =
-                                    levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
-                                let current_ind = 0; // we assume the first level is index 0
-
-                                let level_raw = levelset.levels[current_ind].clone();
-                                let level = levels::Level::from_level_raw(level_raw);
-
-                                paused = false;
-                                render_off_x = 0.;
-                                render_off_y = 0.;
-
-                                state = State::Game {
-                                    levelset: Some(levelset),
-                                    current_ind,
-                                    level,
-                                }
                             }
                         } else if is_key_pressed(KeyCode::Escape) {
                             *menu_state = MenuState::Main(0)
@@ -242,6 +229,7 @@ async fn main() {
                 levelset,
                 current_ind,
                 level,
+                global_state,
             } => {
                 if is_key_pressed(KeyCode::Escape) {
                     paused = !paused
@@ -279,7 +267,11 @@ async fn main() {
                                 .clone();
 
                                 *current_ind = level.side_exits.left.expect("is some");
-                                *level = levels::Level::from_level_raw(level_raw);
+                                *level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    *current_ind,
+                                    &global_state.changed_tiles,
+                                );
                                 let new_off_y = level
                                     .side_offsets
                                     .right
@@ -320,7 +312,11 @@ async fn main() {
                                 .clone();
 
                                 *current_ind = level.side_exits.right.expect("is some");
-                                *level = levels::Level::from_level_raw(level_raw);
+                                *level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    *current_ind,
+                                    &global_state.changed_tiles,
+                                );
                                 let new_off_y =
                                     level.side_offsets.left.expect("should have an exit anchor");
 
@@ -352,7 +348,11 @@ async fn main() {
                                 .clone();
 
                                 *current_ind = level.side_exits.up.expect("is some");
-                                *level = levels::Level::from_level_raw(level_raw);
+                                *level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    *current_ind,
+                                    &global_state.changed_tiles,
+                                );
                                 let new_off_x =
                                     level.side_offsets.down.expect("should have an exit anchor");
                                 let new_off_y = level.dimensions().1 * TILE_SIZE;
@@ -387,7 +387,11 @@ async fn main() {
                                 .clone();
 
                                 *current_ind = level.side_exits.down.expect("is some");
-                                *level = levels::Level::from_level_raw(level_raw);
+                                *level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    *current_ind,
+                                    &global_state.changed_tiles,
+                                );
                                 let new_off_x =
                                     level.side_offsets.up.expect("should have an exit anchor");
 
@@ -406,7 +410,11 @@ async fn main() {
                                     let level_raw = levelset.as_ref().expect("is some").levels
                                         [*current_ind]
                                         .clone();
-                                    *level = levels::Level::from_level_raw(level_raw);
+                                    *level = levels::Level::from_level_raw(
+                                        level_raw,
+                                        *current_ind,
+                                        &global_state.changed_tiles,
+                                    );
                                 } else {
                                     todo!()
                                 }
@@ -429,7 +437,11 @@ async fn main() {
 
                                     let old_ind = *current_ind;
                                     *current_ind = index;
-                                    *level = levels::Level::from_level_raw(level_raw);
+                                    *level = levels::Level::from_level_raw(
+                                        level_raw,
+                                        *current_ind,
+                                        &global_state.changed_tiles,
+                                    );
 
                                     let p_pos = levels::find_door(old_ind, &level.tiles);
                                     if let Some((x, y)) = p_pos {
@@ -455,7 +467,11 @@ async fn main() {
                                     let level_raw = levelset.as_ref().expect("is some").levels
                                         [*current_ind]
                                         .clone();
-                                    *level = levels::Level::from_level_raw(level_raw);
+                                    *level = levels::Level::from_level_raw(
+                                        level_raw,
+                                        *current_ind,
+                                        &global_state.changed_tiles,
+                                    );
                                 } else {
                                     todo!()
                                 }
@@ -507,6 +523,8 @@ async fn main() {
                         render_off_y as i32,
                         &levelset.as_ref().expect("is some").levels,
                         &mut vec![*current_ind],
+                        *current_ind,
+                        &global_state.changed_tiles,
                         true,
                         &mut textures,
                     );
