@@ -9,14 +9,14 @@ fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
 
 pub struct GlobalState {
     pub changed_tiles: HashMap<(usize, usize, usize, usize), Tile>,
-    pub keys: (i32, i32, i32, i32, i32, i32),
+    pub keys: [i32; 6],
 }
 
 impl GlobalState {
     pub fn new() -> Self {
         GlobalState {
             changed_tiles: HashMap::new(),
-            keys: (0, 0, 0, 0, 0, 0),
+            keys: [0; 6],
         }
     }
 }
@@ -71,10 +71,31 @@ pub enum Tile {
     OneWayRight,
     OneWayUp,
     OneWayDown,
+
+    RedKey,
+    YellowKey,
+    GreenKey,
+    CyanKey,
+    BlueKey,
+    PurpleKey,
+
+    RedLock,
+    YellowLock,
+    GreenLock,
+    CyanLock,
+    BlueLock,
+    PurpleLock,
 }
 
 impl Tile {
-    pub fn is_solid(&self, b_box: AABB, _c_box: AABB, my_aabb: AABB, direction: Direction) -> bool {
+    pub fn is_solid(
+        &self,
+        b_box: AABB,
+        _c_box: AABB,
+        my_aabb: AABB,
+        direction: Direction,
+        gs: &GlobalState,
+    ) -> bool {
         match self {
             Self::Wall => true,
             Self::Wall2 => true,
@@ -88,6 +109,13 @@ impl Tile {
             Self::OneWayRight => (b_box.x >= my_aabb.x + my_aabb.w) && direction == Direction::Left,
             Self::OneWayUp => (b_box.y + b_box.h <= my_aabb.y) && direction == Direction::Down,
             Self::OneWayDown => (b_box.y >= my_aabb.y + my_aabb.h) && direction == Direction::Up,
+
+            Self::RedLock => gs.keys[0] == 0,
+            Self::YellowLock => gs.keys[1] == 0,
+            Self::GreenLock => gs.keys[2] == 0,
+            Self::CyanLock => gs.keys[3] == 0,
+            Self::BlueLock => gs.keys[4] == 0,
+            Self::PurpleLock => gs.keys[5] == 0,
 
             _ => false,
         }
@@ -106,23 +134,42 @@ impl Tile {
             "wall2" => Self::Wall2,
             "wall3" => Self::Wall3,
             "wall4" => Self::Wall4,
+
             "backwall" => Self::BackWall,
             "backwall2" => Self::BackWall2,
             "backwall3" => Self::BackWall3,
             "backwall4" => Self::BackWall4,
+
             "door" => Self::DoorGeneric,
             "player" => Self::Player,
             "exit_anchor" => Self::ExitAnchor,
+
             "spikes" => Self::Spikes,
+
             "onewayleft" => Self::OneWayLeft,
             "onewayright" => Self::OneWayRight,
             "onewaydown" => Self::OneWayDown,
             "onewayup" => Self::OneWayUp,
+
+            "redkey" => Self::RedKey,
+            "yellowkey" => Self::YellowKey,
+            "greenkey" => Self::GreenKey,
+            "cyankey" => Self::CyanKey,
+            "bluekey" => Self::BlueKey,
+            "purplekey" => Self::PurpleKey,
+
+            "redlock" => Self::RedLock,
+            "yellowlock" => Self::YellowLock,
+            "greenlock" => Self::GreenLock,
+            "cyanlock" => Self::CyanLock,
+            "bluelock" => Self::BlueLock,
+            "purplelock" => Self::PurpleLock,
+
             _ => Self::Empty,
         }
     }
 
-    pub fn draw(&self, x: i32, y: i32, _textures: &mut HashMap<String, Texture2D>) {
+    pub fn draw(&self, x: i32, y: i32, textures: &mut HashMap<String, Texture2D>) {
         match self {
             Self::Empty => (),
             Self::Wall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK),
@@ -147,6 +194,46 @@ impl Tile {
                 TILE_PIXELS / 8,
                 BLACK,
             ),
+            Self::RedKey
+            | Self::YellowKey
+            | Self::GreenKey
+            | Self::CyanKey
+            | Self::BlueKey
+            | Self::PurpleKey => {
+                let t = texture_cache!(
+                    textures,
+                    match self {
+                        Self::RedKey => "assets/redkey.png",
+                        Self::YellowKey => "assets/yellowkey.png",
+                        Self::GreenKey => "assets/greenkey.png",
+                        Self::CyanKey => "assets/cyankey.png",
+                        Self::BlueKey => "assets/bluekey.png",
+                        Self::PurpleKey => "assets/purplekey.png",
+                        _ => unreachable!(),
+                    }
+                );
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
+            Self::RedLock
+            | Self::YellowLock
+            | Self::GreenLock
+            | Self::CyanLock
+            | Self::BlueLock
+            | Self::PurpleLock => {
+                let t = texture_cache!(
+                    textures,
+                    match self {
+                        Self::RedLock => "assets/redlock.png",
+                        Self::YellowLock => "assets/yellowlock.png",
+                        Self::GreenLock => "assets/greenlock.png",
+                        Self::CyanLock => "assets/cyanlock.png",
+                        Self::BlueLock => "assets/bluelock.png",
+                        Self::PurpleLock => "assets/purplelock.png",
+                        _ => unreachable!(),
+                    }
+                );
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
             // _ => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, MAGENTA),
             _ => (),
         }
@@ -193,6 +280,7 @@ fn check_tilemap_collision(
     c_box: AABB,
     map: &Vec<Vec<Vec<Tile>>>,
     direction: Direction,
+    gs: &GlobalState,
 ) -> bool {
     let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
     let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
@@ -222,7 +310,7 @@ fn check_tilemap_collision(
                 h: TILE_SIZE,
             };
             for l in map {
-                if l[ty][tx].is_solid(b_box, c_box, my_aabb, direction) {
+                if l[ty][tx].is_solid(b_box, c_box, my_aabb, direction, gs) {
                     return true;
                 }
             }
@@ -257,6 +345,66 @@ pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
             for l in map {
                 if l[ty][tx].is_deadly() {
                     return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+pub fn flood_fill(x: usize, y: usize, layer: &mut Vec<Vec<Tile>>, with: Tile) {}
+
+pub fn collect_keys(
+    c_box: AABB,
+    my_screen: usize,
+    map: &mut Vec<Vec<Vec<Tile>>>,
+    gs: &mut GlobalState,
+) -> bool {
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for (li, l) in map.iter_mut().enumerate() {
+                match l[ty][tx] {
+                    Tile::RedKey
+                    | Tile::YellowKey
+                    | Tile::GreenKey
+                    | Tile::CyanKey
+                    | Tile::BlueKey
+                    | Tile::PurpleKey => {
+                        gs.keys[match l[ty][tx] {
+                            Tile::RedKey => 0,
+                            Tile::YellowKey => 1,
+                            Tile::GreenKey => 2,
+                            Tile::CyanKey => 3,
+                            Tile::BlueKey => 4,
+                            Tile::PurpleKey => 5,
+                            _ => unreachable!(),
+                        }] += 1;
+                        println!("{:?}", gs.keys);
+                        l[ty][tx] = Tile::Empty;
+                        gs.changed_tiles
+                            .insert((my_screen, li, ty, tx), Tile::Empty);
+                    }
+                    _ => (),
                 }
             }
         }
@@ -319,7 +467,12 @@ pub trait Object {
 
     fn get_aabb(&self) -> AABB;
 
-    fn update(&mut self, _keys_pressed: &mut HashMap<KeyCode, bool>, _tiles: &Vec<Vec<Vec<Tile>>>) {
+    fn update(
+        &mut self,
+        _keys_pressed: &mut HashMap<KeyCode, bool>,
+        _tiles: &Vec<Vec<Vec<Tile>>>,
+        _global_state: &mut GlobalState,
+    ) {
     }
 
     fn draw(&self, _off_x: i32, _off_y: i32, _texture: &mut HashMap<String, Texture2D>) {}
@@ -359,7 +512,12 @@ impl Object for Player {
         }
     }
 
-    fn update(&mut self, keys_pressed: &mut HashMap<KeyCode, bool>, tiles: &Vec<Vec<Vec<Tile>>>) {
+    fn update(
+        &mut self,
+        keys_pressed: &mut HashMap<KeyCode, bool>,
+        tiles: &Vec<Vec<Vec<Tile>>>,
+        global_state: &mut GlobalState,
+    ) {
         // accelerate left and right
         self.freeze_timer -= 1;
         if self.freeze_timer <= 0 {
@@ -436,6 +594,7 @@ impl Object for Player {
             self.get_aabb(),
             tiles,
             Direction::h_vel(self.vx),
+            &global_state,
         ) {
             self.x -= remaining_movement;
             self.freeze_timer = 0;
@@ -515,6 +674,7 @@ impl Object for Player {
             self.get_aabb(),
             tiles,
             Direction::v_vel(self.vy),
+            &global_state,
         ) {
             self.y -= remaining_movement;
             if self.vy > 0 {
@@ -848,9 +1008,13 @@ impl Level {
             o.draw(off_x, off_y, textures)
         }
     }
-    pub fn update(&mut self, keys_pressed: &mut HashMap<KeyCode, bool>) {
+    pub fn update(
+        &mut self,
+        keys_pressed: &mut HashMap<KeyCode, bool>,
+        global_state: &mut GlobalState,
+    ) {
         for o in self.objects.iter_mut() {
-            o.update(keys_pressed, &self.tiles)
+            o.update(keys_pressed, &self.tiles, global_state)
         }
     }
 

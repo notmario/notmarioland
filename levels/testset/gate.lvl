@@ -1,0 +1,19 @@
+gateway
+===
+#: wall
+p: player
+.: empty
+-: backwall
+e: exit_anchor
+d: door
+X: spikes
+R: redlock
+===
+right: 4
+===
+###########
+#.....R...e
+#.....R....
+#.....R....
+#.....R.p..
+###########

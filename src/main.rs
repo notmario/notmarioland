@@ -82,7 +82,21 @@ async fn main() {
         })
         .collect();
 
-    let preload_textures = ["assets/player.png"];
+    let preload_textures = [
+        "assets/player.png",
+        "assets/redkey.png",
+        "assets/yellowkey.png",
+        "assets/greenkey.png",
+        "assets/cyankey.png",
+        "assets/bluekey.png",
+        "assets/purplekey.png",
+        "assets/redlock.png",
+        "assets/yellowlock.png",
+        "assets/greenlock.png",
+        "assets/cyanlock.png",
+        "assets/bluelock.png",
+        "assets/purplelock.png",
+    ];
 
     for p in preload_textures {
         texture!(&mut textures, p);
@@ -246,7 +260,11 @@ async fn main() {
 
                     if remaining_timer * 60. >= 1. {
                         remaining_timer -= 1. / 60.;
-                        level.update(&mut keys_pressed);
+                        level.update(&mut keys_pressed, global_state);
+
+                        let pbb = level.player_obj().get_aabb();
+
+                        levels::collect_keys(pbb, *current_ind, &mut level.tiles, global_state);
 
                         // check if we should exit!!
                         let player_pos = level.focus_position();
