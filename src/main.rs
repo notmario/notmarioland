@@ -89,13 +89,13 @@ async fn main() {
         "assets/greenkey.png",
         "assets/cyankey.png",
         "assets/bluekey.png",
-        "assets/purplekey.png",
+        "assets/magentakey.png",
         "assets/redlock.png",
         "assets/yellowlock.png",
         "assets/greenlock.png",
         "assets/cyanlock.png",
         "assets/bluelock.png",
-        "assets/purplelock.png",
+        "assets/magentalock.png",
     ];
 
     for p in preload_textures {
@@ -265,6 +265,7 @@ async fn main() {
                         let pbb = level.player_obj().get_aabb();
 
                         levels::collect_keys(pbb, *current_ind, &mut level.tiles, global_state);
+                        levels::collect_doors(pbb, *current_ind, &mut level.tiles, global_state);
 
                         // check if we should exit!!
                         let player_pos = level.focus_position();
@@ -610,6 +611,22 @@ async fn main() {
                     16.,
                     WHITE,
                 );
+
+                let mut key_pos = 2.;
+                for (count, colour) in global_state
+                    .keys
+                    .iter()
+                    .zip(["red", "yellow", "green", "cyan", "blue", "magenta"])
+                {
+                    if *count > 0 {
+                        let t = texture_cache!(textures, &format!("assets/{}key.png", colour));
+                        for i in 0..*count {
+                            draw_texture(&t, i as f32 * 18. + 2., key_pos, WHITE);
+                        }
+
+                        key_pos += 18.;
+                    }
+                }
 
                 if paused {
                     draw_rectangle(

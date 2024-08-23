@@ -45,7 +45,7 @@ impl Direction {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Tile {
     Empty,
     Player,
@@ -77,14 +77,14 @@ pub enum Tile {
     GreenKey,
     CyanKey,
     BlueKey,
-    PurpleKey,
+    MagentaKey,
 
     RedLock,
     YellowLock,
     GreenLock,
     CyanLock,
     BlueLock,
-    PurpleLock,
+    MagentaLock,
 }
 
 impl Tile {
@@ -115,7 +115,7 @@ impl Tile {
             Self::GreenLock => gs.keys[2] == 0,
             Self::CyanLock => gs.keys[3] == 0,
             Self::BlueLock => gs.keys[4] == 0,
-            Self::PurpleLock => gs.keys[5] == 0,
+            Self::MagentaLock => gs.keys[5] == 0,
 
             _ => false,
         }
@@ -156,14 +156,14 @@ impl Tile {
             "greenkey" => Self::GreenKey,
             "cyankey" => Self::CyanKey,
             "bluekey" => Self::BlueKey,
-            "purplekey" => Self::PurpleKey,
+            "magentakey" => Self::MagentaKey,
 
             "redlock" => Self::RedLock,
             "yellowlock" => Self::YellowLock,
             "greenlock" => Self::GreenLock,
             "cyanlock" => Self::CyanLock,
             "bluelock" => Self::BlueLock,
-            "purplelock" => Self::PurpleLock,
+            "magentalock" => Self::MagentaLock,
 
             _ => Self::Empty,
         }
@@ -199,7 +199,7 @@ impl Tile {
             | Self::GreenKey
             | Self::CyanKey
             | Self::BlueKey
-            | Self::PurpleKey => {
+            | Self::MagentaKey => {
                 let t = texture_cache!(
                     textures,
                     match self {
@@ -208,7 +208,7 @@ impl Tile {
                         Self::GreenKey => "assets/greenkey.png",
                         Self::CyanKey => "assets/cyankey.png",
                         Self::BlueKey => "assets/bluekey.png",
-                        Self::PurpleKey => "assets/purplekey.png",
+                        Self::MagentaKey => "assets/magentakey.png",
                         _ => unreachable!(),
                     }
                 );
@@ -219,7 +219,7 @@ impl Tile {
             | Self::GreenLock
             | Self::CyanLock
             | Self::BlueLock
-            | Self::PurpleLock => {
+            | Self::MagentaLock => {
                 let t = texture_cache!(
                     textures,
                     match self {
@@ -228,7 +228,7 @@ impl Tile {
                         Self::GreenLock => "assets/greenlock.png",
                         Self::CyanLock => "assets/cyanlock.png",
                         Self::BlueLock => "assets/bluelock.png",
-                        Self::PurpleLock => "assets/purplelock.png",
+                        Self::MagentaLock => "assets/magentalock.png",
                         _ => unreachable!(),
                     }
                 );
@@ -353,7 +353,30 @@ pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
     false
 }
 
-pub fn flood_fill(x: usize, y: usize, layer: &mut Vec<Vec<Tile>>, with: Tile) {}
+pub fn flood_fill(
+    x: usize,
+    y: usize,
+    layer: &mut Vec<Vec<Tile>>,
+    with: Tile,
+    subs: &mut HashMap<(usize, usize, usize, usize), Tile>,
+    layer_pos: (usize, usize),
+) {
+    let t = layer[y][x];
+    layer[y][x] = with;
+    subs.insert((layer_pos.0, layer_pos.1, y, x), with);
+    if y > 0 && layer[y - 1][x] == t {
+        flood_fill(x, y - 1, layer, with, subs, layer_pos);
+    }
+    if y < layer.len() - 1 && layer[y + 1][x] == t {
+        flood_fill(x, y + 1, layer, with, subs, layer_pos);
+    }
+    if x > 0 && layer[y][x - 1] == t {
+        flood_fill(x - 1, y, layer, with, subs, layer_pos);
+    }
+    if x < layer[y].len() - 1 && layer[y][x + 1] == t {
+        flood_fill(x + 1, y, layer, with, subs, layer_pos);
+    }
+}
 
 pub fn collect_keys(
     c_box: AABB,
@@ -389,20 +412,84 @@ pub fn collect_keys(
                     | Tile::GreenKey
                     | Tile::CyanKey
                     | Tile::BlueKey
-                    | Tile::PurpleKey => {
+                    | Tile::MagentaKey => {
                         gs.keys[match l[ty][tx] {
                             Tile::RedKey => 0,
                             Tile::YellowKey => 1,
                             Tile::GreenKey => 2,
                             Tile::CyanKey => 3,
                             Tile::BlueKey => 4,
-                            Tile::PurpleKey => 5,
+                            Tile::MagentaKey => 5,
                             _ => unreachable!(),
                         }] += 1;
                         println!("{:?}", gs.keys);
                         l[ty][tx] = Tile::Empty;
                         gs.changed_tiles
                             .insert((my_screen, li, ty, tx), Tile::Empty);
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    false
+}
+pub fn collect_doors(
+    c_box: AABB,
+    my_screen: usize,
+    map: &mut Vec<Vec<Vec<Tile>>>,
+    gs: &mut GlobalState,
+) -> bool {
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for (li, l) in map.iter_mut().enumerate() {
+                match l[ty][tx] {
+                    Tile::RedLock
+                    | Tile::YellowLock
+                    | Tile::GreenLock
+                    | Tile::CyanLock
+                    | Tile::BlueLock
+                    | Tile::MagentaLock => {
+                        let i = match l[ty][tx] {
+                            Tile::RedLock => 0,
+                            Tile::YellowLock => 1,
+                            Tile::GreenLock => 2,
+                            Tile::CyanLock => 3,
+                            Tile::BlueLock => 4,
+                            Tile::MagentaLock => 5,
+                            _ => unreachable!(),
+                        };
+                        if gs.keys[i] >= 1 {
+                            gs.keys[i] -= 1;
+                            flood_fill(
+                                tx,
+                                ty,
+                                l,
+                                Tile::Empty,
+                                &mut gs.changed_tiles,
+                                (my_screen, li),
+                            );
+                        };
                     }
                     _ => (),
                 }
