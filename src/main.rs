@@ -20,14 +20,19 @@ mod macros;
 enum MenuState {
     Main(usize),
     LevelsetSelect(usize),
+    EditSelect(usize),
 }
 
 enum State {
     Menu(MenuState),
     Game {
-        levelset: levels::Levelset,
+        levelset: Option<levels::Levelset>,
         current_ind: usize,
         level: levels::Level,
+    },
+    Edit {
+        levelset: String,
+        level: Option<String>,
     },
 }
 
@@ -110,7 +115,7 @@ async fn main() {
                     MenuState::Main(ind) => {
                         draw_text("main menu (temporary)", 4., 12., 16., WHITE);
 
-                        for (i, o) in ["play", "quit"].iter().enumerate() {
+                        for (i, o) in ["play", "edit", "quit"].iter().enumerate() {
                             draw_text(
                                 &format!("{}{}", if *ind == i { "> " } else { "  " }, o),
                                 4.,
@@ -120,7 +125,7 @@ async fn main() {
                             );
                         }
 
-                        if is_key_pressed(KeyCode::Down) && *ind < 1 {
+                        if is_key_pressed(KeyCode::Down) && *ind < 2 {
                             *ind += 1
                         }
                         if is_key_pressed(KeyCode::Up) && *ind > 0 {
@@ -130,7 +135,8 @@ async fn main() {
                         if is_key_pressed(KeyCode::Z) {
                             match ind {
                                 0 => *menu_state = MenuState::LevelsetSelect(0),
-                                1 => panic!("user closed game"),
+                                1 => *menu_state = MenuState::EditSelect(0),
+                                2 => panic!("user closed game"),
                                 _ => (),
                             }
                         }
@@ -138,9 +144,9 @@ async fn main() {
                     MenuState::LevelsetSelect(ind) => {
                         draw_text("select levelset", 4., 12., 16., WHITE);
 
-                        for (i, l) in levelsets.iter().enumerate() {
+                        for (i, l) in levelsets.iter().chain(["back".into()].iter()).enumerate() {
                             draw_text(
-                                &format!("{}{}", if *ind == 0 { "> " } else { "  " }, l),
+                                &format!("{}{}", if *ind == i { "> " } else { "  " }, l),
                                 4.,
                                 28. + 16. * i as f32,
                                 16.,
@@ -148,7 +154,7 @@ async fn main() {
                             );
                         }
 
-                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() - 1 {
+                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() {
                             *ind += 1
                         }
                         if is_key_pressed(KeyCode::Up) && *ind > 0 {
@@ -156,24 +162,80 @@ async fn main() {
                         }
 
                         if is_key_pressed(KeyCode::Z) {
-                            let levelset =
-                                levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
-                            let current_ind = 0; // we assume the first level is index 0
+                            if *ind == levelsets.len() {
+                                *menu_state = MenuState::Main(0);
+                            } else {
+                                let levelset =
+                                    levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
+                                let current_ind = 0; // we assume the first level is index 0
 
-                            let level_raw = levelset.levels[current_ind].clone();
-                            let level = levels::Level::from_level_raw(level_raw);
+                                let level_raw = levelset.levels[current_ind].clone();
+                                let level = levels::Level::from_level_raw(level_raw);
 
-                            paused = false;
-                            render_off_x = 0.;
-                            render_off_y = 0.;
+                                paused = false;
+                                render_off_x = 0.;
+                                render_off_y = 0.;
 
-                            state = State::Game {
-                                levelset,
-                                current_ind,
-                                level,
+                                state = State::Game {
+                                    levelset: Some(levelset),
+                                    current_ind,
+                                    level,
+                                }
                             }
+                        } else if is_key_pressed(KeyCode::Escape) {
+                            *menu_state = MenuState::Main(0);
                         }
-                    } // _ => (),
+                    }
+                    MenuState::EditSelect(ind) => {
+                        draw_text("select levelset to edit", 4., 12., 16., WHITE);
+
+                        for (i, l) in levelsets
+                            .iter()
+                            .chain(["new".into(), "back".into()].iter())
+                            .enumerate()
+                        {
+                            draw_text(
+                                &format!("{}{}", if *ind == i { "> " } else { "  " }, l),
+                                4.,
+                                28. + 16. * i as f32,
+                                16.,
+                                WHITE,
+                            );
+                        }
+
+                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() + 1 {
+                            *ind += 1
+                        }
+                        if is_key_pressed(KeyCode::Up) && *ind > 0 {
+                            *ind -= 1
+                        }
+
+                        if is_key_pressed(KeyCode::Z) {
+                            if *ind == levelsets.len() {
+                            } else if *ind == levelsets.len() + 1 {
+                                *menu_state = MenuState::Main(0);
+                            } else {
+                                let levelset =
+                                    levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
+                                let current_ind = 0; // we assume the first level is index 0
+
+                                let level_raw = levelset.levels[current_ind].clone();
+                                let level = levels::Level::from_level_raw(level_raw);
+
+                                paused = false;
+                                render_off_x = 0.;
+                                render_off_y = 0.;
+
+                                state = State::Game {
+                                    levelset: Some(levelset),
+                                    current_ind,
+                                    level,
+                                }
+                            }
+                        } else if is_key_pressed(KeyCode::Escape) {
+                            *menu_state = MenuState::Main(0)
+                        }
+                    }
                 }
             }
             State::Game {
@@ -202,7 +264,7 @@ async fn main() {
                         let player_pos = level.focus_position();
                         let player_vel = level.player_vel();
                         let d = level.dimensions();
-                        if player_pos.0 < 0 && player_vel.0 < 0 {
+                        if levelset.is_some() && player_pos.0 < 0 && player_vel.0 < 0 {
                             if level.side_exits.left.is_some() {
                                 let old_sliding = level.player_obj().wall_sliding;
                                 let old_freeze = level.player_obj().freeze_timer;
@@ -212,7 +274,7 @@ async fn main() {
                                 let off_y = player_pos.1 - TILE_SIZE / 2 - r_off_y;
                                 let new_x = player_pos.0 - TILE_SIZE / 2;
 
-                                let level_raw = levelset.levels
+                                let level_raw = levelset.as_ref().expect("is some").levels
                                     [level.side_exits.left.expect("is some")]
                                 .clone();
 
@@ -238,7 +300,10 @@ async fn main() {
                                 let p = level.player_obj();
                                 p.x = -TILE_SIZE / 2
                             }
-                        } else if player_pos.0 > d.0 * TILE_SIZE && player_vel.0 > 0 {
+                        } else if levelset.is_some()
+                            && player_pos.0 > d.0 * TILE_SIZE
+                            && player_vel.0 > 0
+                        {
                             if level.side_exits.right.is_some() {
                                 let old_sliding = level.player_obj().wall_sliding;
                                 let old_freeze = level.player_obj().freeze_timer;
@@ -250,7 +315,7 @@ async fn main() {
                                 let off_y = player_pos.1 - TILE_SIZE / 2 - r_off_y;
                                 let new_x = player_pos.0 - d.0 * TILE_SIZE - TILE_SIZE / 2;
 
-                                let level_raw = levelset.levels
+                                let level_raw = levelset.as_ref().expect("is some").levels
                                     [level.side_exits.right.expect("is some")]
                                 .clone();
 
@@ -272,7 +337,7 @@ async fn main() {
                                 let p = level.player_obj();
                                 p.x = d.0 * TILE_SIZE - TILE_SIZE / 2;
                             }
-                        } else if player_pos.1 < 0 && player_vel.1 < 0 {
+                        } else if levelset.is_some() && player_pos.1 < 0 && player_vel.1 < 0 {
                             if level.side_exits.up.is_some() {
                                 let old_sliding = level.player_obj().wall_sliding;
                                 let old_freeze = level.player_obj().freeze_timer;
@@ -282,8 +347,9 @@ async fn main() {
                                 let off_x = player_pos.0 - TILE_SIZE / 2 - r_off_x;
                                 let new_y = player_pos.1 - TILE_SIZE / 2;
 
-                                let level_raw =
-                                    levelset.levels[level.side_exits.up.expect("is some")].clone();
+                                let level_raw = levelset.as_ref().expect("is some").levels
+                                    [level.side_exits.up.expect("is some")]
+                                .clone();
 
                                 *current_ind = level.side_exits.up.expect("is some");
                                 *level = levels::Level::from_level_raw(level_raw);
@@ -302,7 +368,10 @@ async fn main() {
                                 p.x = new_off_x + off_x;
                                 (p.vx, p.vy) = player_vel
                             }
-                        } else if player_pos.1 > d.1 * TILE_SIZE && player_vel.1 > 0 {
+                        } else if levelset.is_some()
+                            && player_pos.1 > d.1 * TILE_SIZE
+                            && player_vel.1 > 0
+                        {
                             if level.side_exits.down.is_some() {
                                 let old_sliding = level.player_obj().wall_sliding;
                                 let old_freeze = level.player_obj().freeze_timer;
@@ -313,7 +382,7 @@ async fn main() {
                                 let new_y =
                                     player_pos.1 - TILE_SIZE / 2 - level.dimensions().1 * TILE_SIZE;
 
-                                let level_raw = levelset.levels
+                                let level_raw = levelset.as_ref().expect("is some").levels
                                     [level.side_exits.down.expect("is some")]
                                 .clone();
 
@@ -333,10 +402,18 @@ async fn main() {
                                 p.x = new_off_x + off_x;
                                 (p.vx, p.vy) = player_vel
                             } else {
-                                let level_raw = levelset.levels[*current_ind].clone();
-                                *level = levels::Level::from_level_raw(level_raw);
+                                if levelset.is_some() {
+                                    let level_raw = levelset.as_ref().expect("is some").levels
+                                        [*current_ind]
+                                        .clone();
+                                    *level = levels::Level::from_level_raw(level_raw);
+                                } else {
+                                    todo!()
+                                }
                             }
-                        } else if *keys_pressed.entry(KeyCode::Up).or_insert(false) {
+                        } else if levelset.is_some()
+                            && *keys_pressed.entry(KeyCode::Up).or_insert(false)
+                        {
                             let p_obj = level.player_obj();
                             let grounded = p_obj.grounded;
                             let aabb = (p_obj as &mut dyn Object).get_aabb();
@@ -347,7 +424,8 @@ async fn main() {
                                 if grounded {
                                     println!("we should be going to {}", index);
 
-                                    let level_raw = levelset.levels[index].clone();
+                                    let level_raw =
+                                        levelset.as_ref().expect("is some").levels[index].clone();
 
                                     let old_ind = *current_ind;
                                     *current_ind = index;
@@ -373,8 +451,14 @@ async fn main() {
                             let aabb = (p_obj as &mut dyn Object).get_aabb();
 
                             if levels::check_tilemap_death(aabb, &level.tiles) {
-                                let level_raw = levelset.levels[*current_ind].clone();
-                                *level = levels::Level::from_level_raw(level_raw);
+                                if levelset.is_some() {
+                                    let level_raw = levelset.as_ref().expect("is some").levels
+                                        [*current_ind]
+                                        .clone();
+                                    *level = levels::Level::from_level_raw(level_raw);
+                                } else {
+                                    todo!()
+                                }
                             }
                         }
 
@@ -417,14 +501,16 @@ async fn main() {
                 // draw_rectangle(255., 191., 2., 2., BLUE);
                 let d = level.dimensions();
                 // draw the rest of the level as well!!
-                levelset.levels[*current_ind].propagate_draw(
-                    render_off_x as i32,
-                    render_off_y as i32,
-                    &levelset.levels,
-                    &mut vec![*current_ind],
-                    true,
-                    &mut textures,
-                );
+                if levelset.is_some() {
+                    levelset.as_ref().expect("is some").levels[*current_ind].propagate_draw(
+                        render_off_x as i32,
+                        render_off_y as i32,
+                        &levelset.as_ref().expect("is some").levels,
+                        &mut vec![*current_ind],
+                        true,
+                        &mut textures,
+                    );
+                }
 
                 // dim area outside screen
 
@@ -506,6 +592,7 @@ async fn main() {
                     }
                 }
             } // _ => (),
+            State::Edit { levelset, level } => {}
         }
 
         next_frame().await;
