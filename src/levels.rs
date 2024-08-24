@@ -10,6 +10,7 @@ fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
 pub struct GlobalState {
     pub changed_tiles: HashMap<(usize, usize, usize, usize), Tile>,
     pub keys: [i32; 6],
+    pub timer: i32,
 }
 
 impl GlobalState {
@@ -17,6 +18,7 @@ impl GlobalState {
         GlobalState {
             changed_tiles: HashMap::new(),
             keys: [0; 6],
+            timer: 0,
         }
     }
 }
@@ -85,6 +87,16 @@ pub enum Tile {
     CyanLock,
     BlueLock,
     MagentaLock,
+
+    SawLauncherLeft,
+    SawLauncherRight,
+    SawLauncherUp,
+    SawLauncherDown,
+
+    SlowSawLauncherLeft,
+    SlowSawLauncherRight,
+    SlowSawLauncherUp,
+    SlowSawLauncherDown,
 }
 
 impl Tile {
@@ -165,6 +177,16 @@ impl Tile {
             "bluelock" => Self::BlueLock,
             "magentalock" => Self::MagentaLock,
 
+            "sawlauncherleft" => Self::SawLauncherLeft,
+            "sawlauncherright" => Self::SawLauncherRight,
+            "sawlauncherup" => Self::SawLauncherUp,
+            "sawlauncherdown" => Self::SawLauncherDown,
+
+            "slowsawlauncherleft" => Self::SlowSawLauncherLeft,
+            "slowsawlauncherright" => Self::SlowSawLauncherRight,
+            "slowsawlauncherup" => Self::SlowSawLauncherUp,
+            "slowsawlauncherdown" => Self::SlowSawLauncherDown,
+
             _ => Self::Empty,
         }
     }
@@ -234,13 +256,45 @@ impl Tile {
                 );
                 draw_texture(&t, x as f32, y as f32, WHITE)
             }
+            Self::SawLauncherLeft
+            | Self::SawLauncherRight
+            | Self::SawLauncherUp
+            | Self::SawLauncherDown => {
+                let t = texture_cache!(
+                    textures,
+                    match self {
+                        Self::SawLauncherLeft => "assets/sawlauncherleft.png",
+                        Self::SawLauncherRight => "assets/sawlauncherright.png",
+                        Self::SawLauncherUp => "assets/sawlauncherup.png",
+                        Self::SawLauncherDown => "assets/sawlauncherdown.png",
+                        _ => unreachable!(),
+                    }
+                );
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
+            Self::SlowSawLauncherLeft
+            | Self::SlowSawLauncherRight
+            | Self::SlowSawLauncherUp
+            | Self::SlowSawLauncherDown => {
+                let t = texture_cache!(
+                    textures,
+                    match self {
+                        Self::SlowSawLauncherLeft => "assets/slowsawlauncherleft.png",
+                        Self::SlowSawLauncherRight => "assets/slowsawlauncherright.png",
+                        Self::SlowSawLauncherUp => "assets/slowsawlauncherup.png",
+                        Self::SlowSawLauncherDown => "assets/slowsawlauncherdown.png",
+                        _ => unreachable!(),
+                    }
+                );
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
             // _ => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, MAGENTA),
             _ => (),
         }
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct AABB {
     x: i32,
     y: i32,
@@ -250,30 +304,30 @@ pub struct AABB {
 
 // commented out so the compiler shuts up
 
-// impl AABB {
-//     fn intersect(&self, other: &Self) -> bool {
-//         self.x < other.x + other.w
-//             && self.x + self.w > other.x
-//             && self.y < other.y + other.h
-//             && self.y + self.h > other.w
-//     }
-//     fn smaller_by(&self, amt: i32) -> Self {
-//         AABB {
-//             x: self.x + amt,
-//             y: self.y + amt,
-//             w: self.w - amt * 2,
-//             h: self.h - amt * 2,
-//         }
-//     }
-//     fn shift_by(&self, off: (i32, i32)) -> Self {
-//         AABB {
-//             x: self.x + off.0,
-//             y: self.y + off.1,
-//             w: self.w,
-//             h: self.h,
-//         }
-//     }
-// }
+impl AABB {
+    fn intersect(&self, other: &Self) -> bool {
+        self.x < other.x + other.w
+            && self.x + self.w > other.x
+            && self.y < other.y + other.h
+            && self.y + self.h > other.y
+    }
+    fn smaller_by(&self, amt: i32) -> Self {
+        AABB {
+            x: self.x + amt,
+            y: self.y + amt,
+            w: self.w - amt * 2,
+            h: self.h - amt * 2,
+        }
+    }
+    // fn shift_by(&self, off: (i32, i32)) -> Self {
+    //     AABB {
+    //         x: self.x + off.0,
+    //         y: self.y + off.1,
+    //         w: self.w,
+    //         h: self.h,
+    //     }
+    // }
+}
 
 fn check_tilemap_collision(
     b_box: AABB,
@@ -353,6 +407,22 @@ pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
     false
 }
 
+pub fn check_object_death(c_box: AABB, objects: &Vec<Box<dyn Object>>) -> bool {
+    for o in objects {
+        match o.get_type() {
+            "SAW" => {
+                if o.get_aabb().smaller_by(PIXEL_SIZE * 2).intersect(&c_box) {
+                    // println!("{:?} {:?}", o.get_aabb(), c_box);
+                    return true;
+                }
+            }
+            _ => (),
+        }
+    }
+
+    false
+}
+
 pub fn flood_fill(
     x: usize,
     y: usize,
@@ -422,7 +492,7 @@ pub fn collect_keys(
                             Tile::MagentaKey => 5,
                             _ => unreachable!(),
                         }] += 1;
-                        println!("{:?}", gs.keys);
+                        // println!("{:?}", gs.keys);
                         l[ty][tx] = Tile::Empty;
                         gs.changed_tiles
                             .insert((my_screen, li, ty, tx), Tile::Empty);
@@ -566,6 +636,12 @@ pub trait Object {
 
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    fn should_clear(&self) -> bool {
+        false
+    }
+    fn spawn(&self, gs: &GlobalState) -> Option<Box<dyn Object>> {
+        None
+    }
 }
 
 pub struct Player {
@@ -850,6 +926,200 @@ impl Object for Player {
     }
 }
 
+pub struct Saw {
+    pub x: i32,
+    pub y: i32,
+
+    pub vx: i32,
+    pub vy: i32,
+
+    pub anim_timer: i32,
+
+    pub should_remove: bool,
+}
+
+impl Object for Saw {
+    fn get_type(&self) -> &'static str {
+        "SAW"
+    }
+
+    fn get_aabb(&self) -> AABB {
+        AABB {
+            x: self.x,
+            y: self.y,
+            w: TILE_SIZE,
+            h: TILE_SIZE,
+        }
+    }
+
+    fn update(
+        &mut self,
+        _keys_pressed: &mut HashMap<KeyCode, bool>,
+        tiles: &Vec<Vec<Vec<Tile>>>,
+        global_state: &mut GlobalState,
+    ) {
+        // horizontal movement
+        // move to tile boundary if we are moving too fast
+
+        self.anim_timer += 1;
+
+        let before_aabb = self.get_aabb();
+
+        let remaining_movement = if (self.x + self.vx) / TILE_SIZE != self.x / TILE_SIZE {
+            let old_pos = self.x;
+            if self.vx < 0 {
+                self.x = self.x / TILE_SIZE * TILE_SIZE;
+            } else {
+                self.x = (self.x / TILE_SIZE + 1) * TILE_SIZE;
+            }
+            // difference between target position and current is remaining movement
+            (old_pos + self.vx) - (self.x)
+        } else {
+            self.vx
+        };
+        // now we are aligned at tile boundary, do remaining movement,
+        // then step back if we are then colliding
+        self.x += remaining_movement;
+        if check_tilemap_collision(
+            before_aabb,
+            self.get_aabb(),
+            tiles,
+            Direction::h_vel(self.vx),
+            &global_state,
+        ) {
+            self.should_remove = true
+        }
+
+        let before_aabb = self.get_aabb();
+
+        let remaining_movement = if (self.y + self.vy) / TILE_SIZE != self.y / TILE_SIZE {
+            let old_pos = self.y;
+            if (self.y % TILE_SIZE) * 2 < TILE_SIZE {
+                self.y = self.y / TILE_SIZE * TILE_SIZE;
+            } else {
+                self.y = (self.y / TILE_SIZE + 1) * TILE_SIZE;
+            }
+            (old_pos + self.vy) - (self.y)
+        } else {
+            self.vy
+        };
+
+        self.y += remaining_movement;
+        if check_tilemap_collision(
+            before_aabb,
+            self.get_aabb(),
+            tiles,
+            Direction::v_vel(self.vy),
+            &global_state,
+        ) {
+            self.should_remove = true
+        }
+    }
+
+    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
+        // draw_rect_i32(
+        //     self.x / PIXEL_SIZE + off_x,
+        //     self.y / PIXEL_SIZE + off_y,
+        //     TILE_PIXELS,
+        //     TILE_PIXELS,
+        //     BLUE,
+        // );
+
+        let t = texture_cache!(textures, "assets/saw.png");
+
+        let mut draw_offset = (0, 0);
+        if self.anim_timer % 16 >= 8 {
+            draw_offset = (16, 0)
+        }
+
+        draw_texture_ex(
+            &t,
+            (self.x / PIXEL_SIZE + off_x) as f32,
+            (self.y / PIXEL_SIZE + off_y) as f32,
+            WHITE,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: draw_offset.0 as f32,
+                    y: draw_offset.1 as f32,
+                    w: 16.,
+                    h: 16.,
+                }),
+                ..Default::default()
+            },
+        )
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn should_clear(&self) -> bool {
+        self.should_remove
+    }
+}
+
+pub struct SawLauncher {
+    pub x: i32,
+    pub y: i32,
+
+    pub vx: i32,
+    pub vy: i32,
+
+    pub frames: i32,
+}
+
+impl Object for SawLauncher {
+    fn get_type(&self) -> &'static str {
+        "SAWLAUNCHER"
+    }
+
+    fn get_aabb(&self) -> AABB {
+        AABB {
+            x: self.x,
+            y: self.y,
+            w: TILE_SIZE,
+            h: TILE_SIZE,
+        }
+    }
+
+    fn update(
+        &mut self,
+        _keys_pressed: &mut HashMap<KeyCode, bool>,
+        _tiles: &Vec<Vec<Vec<Tile>>>,
+        _global_state: &mut GlobalState,
+    ) {
+    }
+
+    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {}
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn spawn(&self, gs: &GlobalState) -> Option<Box<dyn Object>> {
+        if gs.timer % self.frames != 0 {
+            return None;
+        }
+
+        Some(Box::new(Saw {
+            x: self.x,
+            y: self.y,
+            vx: self.vx,
+            vy: self.vy,
+            anim_timer: 0,
+            should_remove: false,
+        }))
+    }
+}
+
 #[derive(Clone)]
 pub struct SideExits {
     pub left: Option<usize>,
@@ -1037,7 +1307,7 @@ impl LevelRaw {
 pub struct Level {
     pub name: String,
     pub tiles: Vec<Vec<Vec<Tile>>>,
-    objects: Vec<Box<dyn Object>>,
+    pub objects: Vec<Box<dyn Object>>,
     pub side_exits: SideExits,
     pub side_offsets: SideOffsets,
 }
@@ -1100,9 +1370,18 @@ impl Level {
         keys_pressed: &mut HashMap<KeyCode, bool>,
         global_state: &mut GlobalState,
     ) {
+        global_state.timer += 1;
         for o in self.objects.iter_mut() {
             o.update(keys_pressed, &self.tiles, global_state)
         }
+        self.objects.retain(|o| !o.should_clear());
+        let mut extra_objs = self
+            .objects
+            .iter()
+            .filter_map(|o| o.spawn(&global_state))
+            .collect();
+
+        self.objects.append(&mut extra_objs);
     }
 
     pub fn from_level_raw(
@@ -1126,7 +1405,8 @@ impl Level {
             for (y, row) in layer.iter().enumerate() {
                 let mut row_tiles = vec![];
                 for (x, tile) in row.iter().enumerate() {
-                    match subs.get(&(my_ind, la, y, x)).unwrap_or(tile) {
+                    let newt = subs.get(&(my_ind, la, y, x)).unwrap_or(tile);
+                    match newt {
                         Tile::Player => {
                             let obj = Player {
                                 x: x as i32 * TILE_SIZE,
@@ -1160,6 +1440,51 @@ impl Level {
                                 .expect("should have a corresponding door entrance");
                             row_tiles.push(Tile::Door(*ind));
                         }
+                        Tile::SawLauncherLeft
+                        | Tile::SawLauncherRight
+                        | Tile::SawLauncherUp
+                        | Tile::SawLauncherDown => {
+                            let (vx, vy) = match &newt {
+                                Tile::SawLauncherLeft => (-3 * TILE_SIZE / 16, 0),
+                                Tile::SawLauncherRight => (3 * TILE_SIZE / 16, 0),
+                                Tile::SawLauncherUp => (0, -3 * TILE_SIZE / 16),
+                                Tile::SawLauncherDown => (0, 3 * TILE_SIZE / 16),
+                                _ => unreachable!(),
+                            };
+
+                            objects.push(Box::new(SawLauncher {
+                                x: x as i32 * TILE_SIZE,
+                                y: y as i32 * TILE_SIZE,
+                                vx,
+                                vy,
+                                frames: 45,
+                            }));
+
+                            row_tiles.push(*newt)
+                        }
+                        Tile::SlowSawLauncherLeft
+                        | Tile::SlowSawLauncherRight
+                        | Tile::SlowSawLauncherUp
+                        | Tile::SlowSawLauncherDown => {
+                            let (vx, vy) = match &newt {
+                                Tile::SlowSawLauncherLeft => (-TILE_SIZE / 32, 0),
+                                Tile::SlowSawLauncherRight => (TILE_SIZE / 32, 0),
+                                Tile::SlowSawLauncherUp => (0, -TILE_SIZE / 32),
+                                Tile::SlowSawLauncherDown => (0, TILE_SIZE / 32),
+                                _ => unreachable!(),
+                            };
+
+                            objects.push(Box::new(SawLauncher {
+                                x: x as i32 * TILE_SIZE,
+                                y: y as i32 * TILE_SIZE,
+                                vx,
+                                vy,
+                                frames: 32,
+                            }));
+
+                            row_tiles.push(*newt)
+                        }
+
                         t => row_tiles.push(*t),
                     }
                 }

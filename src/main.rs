@@ -96,6 +96,15 @@ async fn main() {
         "assets/cyanlock.png",
         "assets/bluelock.png",
         "assets/magentalock.png",
+        "assets/saw.png",
+        "assets/sawlauncherleft.png",
+        "assets/sawlauncherright.png",
+        "assets/sawlauncherup.png",
+        "assets/sawlauncherdown.png",
+        "assets/slowsawlauncherleft.png",
+        "assets/slowsawlauncherright.png",
+        "assets/slowsawlauncherup.png",
+        "assets/slowsawlauncherdown.png",
     ];
 
     for p in preload_textures {
@@ -449,7 +458,7 @@ async fn main() {
 
                             if let Some(levels::Tile::Door(index)) = doors {
                                 if grounded {
-                                    println!("we should be going to {}", index);
+                                    // println!("we should be going to {}", index);
 
                                     let level_raw =
                                         levelset.as_ref().expect("is some").levels[index].clone();
@@ -481,7 +490,9 @@ async fn main() {
                             let p_obj = level.player_obj();
                             let aabb = (p_obj as &mut dyn Object).get_aabb();
 
-                            if levels::check_tilemap_death(aabb, &level.tiles) {
+                            if levels::check_tilemap_death(aabb, &level.tiles)
+                                || levels::check_object_death(aabb, &level.objects)
+                            {
                                 if levelset.is_some() {
                                     let level_raw = levelset.as_ref().expect("is some").levels
                                         [*current_ind]
