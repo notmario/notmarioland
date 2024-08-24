@@ -81,7 +81,7 @@ impl Theme {
         for part in s.split("\n===\n") {
             if part.starts_with("bglayer") {
                 let mut lines = part.lines();
-                println!("{:?}", lines);
+                // println!("{:?}", lines);
                 lines.next();
                 theme.bg.push(BackgroundLayer {
                     image: lines.next().expect("should exist").into(),
@@ -201,10 +201,10 @@ async fn main() {
                     .expect("path should be string")
             );
             if std::fs::read(t_path.clone()).is_err() {
-                println!("{}", t_path);
+                // println!("{}", t_path);
                 return None;
             }
-            println!("found levelset {:?}", a);
+            // println!("found levelset {:?}", a);
             Some(a.to_string())
         })
         .collect();

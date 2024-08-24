@@ -1818,7 +1818,7 @@ pub fn load_levelset(path: &str) -> Levelset {
     let levelset_file = std::fs::read_to_string(format!("{}/levels.levelset", path)).unwrap();
     let levelset_file = levelset_file.trim().replace("\r\n", "\n");
 
-    println!("{}", levelset_file);
+    // println!("{}", levelset_file);
 
     let mut parts = levelset_file.split("\n===\n");
 
@@ -1830,7 +1830,7 @@ pub fn load_levelset(path: &str) -> Levelset {
     for l in parts.next().expect("should have part").lines() {
         let l = l.trim();
 
-        println!("reading {}/{}.lvl", path, l);
+        // println!("reading {}/{}.lvl", path, l);
 
         let lev = load_level(&format!("{}/{}.lvl", path, l));
 
@@ -1845,7 +1845,7 @@ pub fn load_levelset(path: &str) -> Levelset {
         for l in np.expect("is some").lines() {
             let l = l.trim();
 
-            println!("reading {}/{}.nmltheme", path, l);
+            // println!("reading {}/{}.nmltheme", path, l);
 
             themes.push(Theme::from_path(&format!("{}/{}.nmltheme", path, l)));
         }
