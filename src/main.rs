@@ -766,16 +766,18 @@ async fn main() {
                 let vel = level.player_vel();
                 let g = level.player_obj().air_frames;
                 draw_text(
-                    &format!(
-                        "h {:0>3} v {:0>3} g {}",
-                        vel.0.abs() / 16,
-                        vel.1.abs() / 16,
-                        (15 - g).max(0)
-                    ),
+                    &format!("h {:0>3}", vel.0.abs() / 16,),
                     2.,
                     SCREEN_HEIGHT as f32 - 4.,
                     16.,
-                    WHITE,
+                    if vel.0.abs() >= 4096 { RED } else { WHITE },
+                );
+                draw_text(
+                    &format!("v {:0>3}", vel.1.abs() / 16,),
+                    44.,
+                    SCREEN_HEIGHT as f32 - 4.,
+                    16.,
+                    if vel.1.abs() >= 4096 { RED } else { WHITE },
                 );
 
                 let mut key_pos = 2.;
