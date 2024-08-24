@@ -130,7 +130,7 @@ async fn main() {
                     MenuState::Main(ind) => {
                         draw_text("main menu (temporary)", 4., 12., 16., WHITE);
 
-                        for (i, o) in ["play", "edit", "quit"].iter().enumerate() {
+                        for (i, o) in ["play", "quit"].iter().enumerate() {
                             draw_text(
                                 &format!("{}{}", if *ind == i { "> " } else { "  " }, o),
                                 4.,
@@ -150,8 +150,8 @@ async fn main() {
                         if is_key_pressed(KeyCode::Z) {
                             match ind {
                                 0 => *menu_state = MenuState::LevelsetSelect(0),
-                                1 => *menu_state = MenuState::EditSelect(0),
-                                2 => panic!("user closed game"),
+                                // 1 => *menu_state = MenuState::EditSelect(0),
+                                1 => panic!("user closed game"),
                                 _ => (),
                             }
                         }
