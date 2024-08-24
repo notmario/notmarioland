@@ -1,0 +1,12 @@
+wall_1: levels/tutorial/assets/tileset.png
+===
+bglayer
+levels/tutorial/assets/bg.png
+0
+0
+0
+0
+0
+0
+1
+1
