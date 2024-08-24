@@ -11,6 +11,7 @@ pub struct GlobalState {
     pub changed_tiles: HashMap<(usize, usize, usize, usize), Tile>,
     pub keys: [i32; 6],
     pub timer: i32,
+    pub secrets: i32,
 }
 
 impl GlobalState {
@@ -19,6 +20,7 @@ impl GlobalState {
             changed_tiles: HashMap::new(),
             keys: [0; 6],
             timer: 0,
+            secrets: 0,
         }
     }
 }
@@ -97,6 +99,9 @@ pub enum Tile {
     SlowSawLauncherRight,
     SlowSawLauncherUp,
     SlowSawLauncherDown,
+
+    Secret,
+    Goal,
 }
 
 impl Tile {
@@ -187,6 +192,9 @@ impl Tile {
             "slowsawlauncherup" => Self::SlowSawLauncherUp,
             "slowsawlauncherdown" => Self::SlowSawLauncherDown,
 
+            "secret" => Self::Secret,
+            "goal" => Self::Goal,
+
             _ => Self::Empty,
         }
     }
@@ -201,9 +209,16 @@ impl Tile {
     ) {
         match self {
             Self::Empty => (),
-            Self::Wall => {
-                if theme.wall_1.is_some() {
-                    let t = texture_cache!(textures, theme.wall_1.as_ref().expect("it exists"));
+            Self::Wall | Self::Wall2 | Self::Wall3 | Self::Wall4 => {
+                let te = match self {
+                    Self::Wall => &theme.wall_1,
+                    Self::Wall2 => &theme.wall_2,
+                    Self::Wall3 => &theme.wall_3,
+                    Self::Wall4 => &theme.wall_4,
+                    _ => unreachable!(),
+                };
+                if te.is_some() {
+                    let t = texture_cache!(textures, te.as_ref().expect("it exists"));
                     let mut render_offset = (0, 0);
                     if touching.up {
                         render_offset.1 += 32
@@ -237,11 +252,57 @@ impl Tile {
                     draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK)
                 }
             }
-            Self::BackWall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY),
-            Self::Door(_) | Self::DoorGeneric => {
-                draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BROWN)
+            Self::BackWall | Self::BackWall2 | Self::BackWall3 | Self::BackWall4 => {
+                let te = match self {
+                    Self::BackWall => &theme.back_wall_1,
+                    Self::BackWall2 => &theme.back_wall_2,
+                    Self::BackWall3 => &theme.back_wall_3,
+                    Self::BackWall4 => &theme.back_wall_4,
+                    _ => unreachable!(),
+                };
+                if te.is_some() {
+                    let t = texture_cache!(textures, te.as_ref().expect("it exists"));
+                    let mut render_offset = (0, 0);
+                    if touching.up {
+                        render_offset.1 += 32
+                    };
+                    if touching.down {
+                        render_offset.1 += 16
+                    };
+                    if touching.left {
+                        render_offset.0 += 32
+                    };
+                    if touching.right {
+                        render_offset.0 += 16
+                    };
+
+                    draw_texture_ex(
+                        &t,
+                        x as f32,
+                        y as f32,
+                        WHITE,
+                        DrawTextureParams {
+                            source: Some(Rect {
+                                x: render_offset.0 as f32,
+                                y: render_offset.1 as f32,
+                                w: 16.,
+                                h: 16.,
+                            }),
+                            ..Default::default()
+                        },
+                    )
+                } else {
+                    draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY)
+                }
             }
-            Self::Spikes => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, RED),
+            Self::Door(_) | Self::DoorGeneric => {
+                let t = texture_cache!(textures, "assets/door.png");
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
+            Self::Spikes => {
+                let t = texture_cache!(textures, "assets/spike.png");
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
             Self::OneWayLeft => draw_rect_i32(x, y, TILE_PIXELS / 8, TILE_PIXELS, BLACK),
             Self::OneWayUp => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS / 8, BLACK),
             Self::OneWayRight => draw_rect_i32(
@@ -325,6 +386,17 @@ impl Tile {
                         Self::SlowSawLauncherRight => "assets/slowsawlauncherright.png",
                         Self::SlowSawLauncherUp => "assets/slowsawlauncherup.png",
                         Self::SlowSawLauncherDown => "assets/slowsawlauncherdown.png",
+                        _ => unreachable!(),
+                    }
+                );
+                draw_texture(&t, x as f32, y as f32, WHITE)
+            }
+            Self::Secret | Self::Goal => {
+                let t = texture_cache!(
+                    textures,
+                    match self {
+                        Self::Secret => "assets/secret.png",
+                        Self::Goal => "assets/goal.png",
                         _ => unreachable!(),
                     }
                 );
@@ -449,6 +521,39 @@ pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
     false
 }
 
+pub fn check_tilemap_win(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for l in map {
+                if l[ty][tx] == Tile::Goal {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 pub fn check_object_death(c_box: AABB, objects: &Vec<Box<dyn Object>>) -> bool {
     for o in objects {
         match o.get_type() {
@@ -539,6 +644,14 @@ pub fn collect_keys(
                         gs.changed_tiles
                             .insert((my_screen, li, ty, tx), Tile::Empty);
                     }
+                    Tile::Secret => {
+                        gs.secrets += 1;
+
+                        l[ty][tx] = Tile::Empty;
+                        gs.changed_tiles
+                            .insert((my_screen, li, ty, tx), Tile::Empty);
+                    }
+
                     _ => (),
                 }
             }
@@ -1218,6 +1331,21 @@ impl LevelRaw {
         }
         side_offsets
     }
+    pub fn secret_count(&self) -> i32 {
+        let mut count = 0;
+
+        for l in self.tiles.iter() {
+            for row in l {
+                for col in row {
+                    if *col == Tile::Secret {
+                        count += 1;
+                    }
+                }
+            }
+        }
+
+        count
+    }
     pub fn draw(
         &self,
         off_x: i32,
@@ -1576,7 +1704,7 @@ impl Level {
             objects,
             side_exits: l.exits,
             side_offsets,
-            theme: 0,
+            theme: l.theme,
         }
     }
 }
@@ -1611,7 +1739,7 @@ fn load_level(path: &str) -> LevelRaw {
         })
         .collect();
 
-    let (exits, door_exits) = {
+    let (exits, door_exits, theme) = {
         let mut exits = SideExits {
             left: None,
             right: None,
@@ -1619,6 +1747,7 @@ fn load_level(path: &str) -> LevelRaw {
             down: None,
         };
         let mut door_exits = vec![];
+        let mut theme = 0;
 
         for l in parts.next().expect("should have part").lines() {
             let mut halves = l.split(":");
@@ -1633,11 +1762,12 @@ fn load_level(path: &str) -> LevelRaw {
                 "up" => exits.up = Some(right_half),
                 "down" => exits.down = Some(right_half),
                 "door" => door_exits.push(right_half),
+                "theme" => theme = right_half,
                 _ => (),
             }
         }
 
-        (exits, door_exits)
+        (exits, door_exits, theme)
     };
 
     let mut tiles = vec![];
@@ -1671,7 +1801,7 @@ fn load_level(path: &str) -> LevelRaw {
         tiles,
         exits,
         door_exits,
-        theme: 0,
+        theme,
     }
 }
 
@@ -1679,6 +1809,7 @@ pub struct Levelset {
     pub name: String,
     pub levels: Vec<LevelRaw>,
     pub themes: Vec<Theme>,
+    pub secret_count: i32,
 }
 
 pub fn load_levelset(path: &str) -> Levelset {
@@ -1691,13 +1822,19 @@ pub fn load_levelset(path: &str) -> Levelset {
 
     let name = parts.next().expect("should have part").to_string();
 
+    let mut secret_count = 0;
+
     let mut levels = vec![];
     for l in parts.next().expect("should have part").lines() {
         let l = l.trim();
 
         println!("reading {}/{}.lvl", path, l);
 
-        levels.push(load_level(&format!("{}/{}.lvl", path, l)));
+        let lev = load_level(&format!("{}/{}.lvl", path, l));
+
+        secret_count += lev.secret_count();
+
+        levels.push(lev);
     }
 
     let mut themes = vec![];
@@ -1716,5 +1853,6 @@ pub fn load_levelset(path: &str) -> Levelset {
         name,
         levels,
         themes,
+        secret_count,
     }
 }

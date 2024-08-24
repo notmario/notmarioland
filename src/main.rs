@@ -30,6 +30,7 @@ enum State {
         current_ind: usize,
         level: levels::Level,
         global_state: levels::GlobalState,
+        won: bool,
     },
     Edit {
         levelset: String,
@@ -231,6 +232,10 @@ async fn main() {
         "assets/slowsawlauncherright.png",
         "assets/slowsawlauncherup.png",
         "assets/slowsawlauncherdown.png",
+        "assets/secret.png",
+        "assets/goal.png",
+        "assets/door.png",
+        "assets/spike.png",
     ];
 
     for p in preload_textures {
@@ -256,6 +261,8 @@ async fn main() {
     let mut state = State::Menu(MenuState::Main(0));
 
     let mut themes = vec![];
+    let mut deaths = 0;
+    let mut secret_count = 0;
 
     loop {
         clear_background(WHITE);
@@ -330,6 +337,8 @@ async fn main() {
                                 render_off_y = 0.;
 
                                 themes = levelset.themes.clone();
+                                deaths = 0;
+                                secret_count = levelset.secret_count;
 
                                 if themes.len() == 0 {
                                     themes.push(Theme {
@@ -346,6 +355,7 @@ async fn main() {
                                     current_ind,
                                     level,
                                     global_state: levels::GlobalState::new(),
+                                    won: false,
                                 }
                             }
                         } else if is_key_pressed(KeyCode::Escape) {
@@ -393,11 +403,12 @@ async fn main() {
                 current_ind,
                 level,
                 global_state,
+                won,
             } => {
                 if is_key_pressed(KeyCode::Escape) {
                     paused = !paused
                 }
-                if !paused {
+                if !paused && !*won {
                     let delta = get_frame_time();
                     remaining_timer += delta;
 
@@ -583,6 +594,8 @@ async fn main() {
                                         *current_ind,
                                         &global_state.changed_tiles,
                                     );
+
+                                    deaths += 1;
                                 } else {
                                     todo!()
                                 }
@@ -642,9 +655,15 @@ async fn main() {
                                         *current_ind,
                                         &global_state.changed_tiles,
                                     );
+
+                                    deaths += 1;
                                 } else {
                                     todo!()
                                 }
+                            }
+
+                            if levels::check_tilemap_win(aabb, &level.tiles) {
+                                *won = true;
                             }
                         }
 
@@ -759,7 +778,7 @@ async fn main() {
                     color_u8!(0, 0, 0, 191),
                 );
 
-                let x = (SCREEN_WIDTH - level.name.len() as i32 * 8) / 2;
+                let x = (SCREEN_WIDTH - level.name.len() as i32 * 7) / 2;
 
                 draw_text(&level.name, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
 
@@ -779,6 +798,19 @@ async fn main() {
                     16.,
                     if vel.1.abs() >= 4096 { RED } else { WHITE },
                 );
+
+                let t = format!(
+                    "{}/{} | {:0>2}:{:0>2} | {} death{}",
+                    global_state.secrets,
+                    secret_count,
+                    global_state.timer / 3600,
+                    (global_state.timer / 60) % 60,
+                    deaths,
+                    if deaths == 1 { "" } else { "s" }
+                );
+                let x = SCREEN_WIDTH - t.len() as i32 * 7 - 2;
+
+                draw_text(&t, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
 
                 let mut key_pos = 2.;
                 for (count, colour) in global_state
@@ -807,6 +839,40 @@ async fn main() {
 
                     draw_text("paused !!", 4., 12., 16., WHITE);
                     draw_text("q to quit", 4., 28., 16., WHITE);
+
+                    if is_key_pressed(KeyCode::Q) {
+                        state = State::Menu(MenuState::Main(0))
+                    }
+                } else if *won {
+                    draw_rectangle(
+                        0.,
+                        0.,
+                        SCREEN_WIDTH as f32,
+                        SCREEN_HEIGHT as f32,
+                        color_u8!(0, 0, 0, 192),
+                    );
+
+                    draw_text("you win!!", 4., 12., 16., WHITE);
+                    draw_text(
+                        &format!(
+                            "your time: {:0>2}:{:0>2}",
+                            global_state.timer / 3600,
+                            (global_state.timer / 60) % 60
+                        ),
+                        4.,
+                        28.,
+                        16.,
+                        WHITE,
+                    );
+                    draw_text(
+                        &format!("secrets: {}/{}", global_state.secrets, secret_count),
+                        4.,
+                        44.,
+                        16.,
+                        WHITE,
+                    );
+                    draw_text(&format!("deaths: {}", deaths), 4., 60., 16., WHITE);
+                    draw_text("q to quit", 4., 76., 16., WHITE);
 
                     if is_key_pressed(KeyCode::Q) {
                         state = State::Menu(MenuState::Main(0))

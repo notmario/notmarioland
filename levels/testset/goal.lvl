@@ -1,0 +1,18 @@
+and i'm gone
+===
+#: wall
+p: player
+.: empty
+-: backwall
+e: exit_anchor
+d: door
+r: redkey
+g: goal
+===
+left: 11
+===
+#########
+e.......#
+......g.#
+..p.....#
+#########
