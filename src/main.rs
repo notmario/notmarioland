@@ -37,6 +37,132 @@ enum State {
     },
 }
 
+#[derive(Clone)]
+struct BackgroundLayer {
+    image: String,
+
+    // all are stored with TILE_SIZE as 1 tile
+    off_x: i32,
+    off_y: i32,
+    para_factor_x: i32,
+    para_factor_y: i32,
+
+    scroll_x: i32,
+    scroll_y: i32,
+    mod_x: i32,
+    mod_y: i32,
+}
+
+#[derive(Default, Clone)]
+struct Theme {
+    bg: Vec<BackgroundLayer>,
+
+    wall_1: Option<String>,
+    wall_2: Option<String>,
+    wall_3: Option<String>,
+    wall_4: Option<String>,
+
+    back_wall_1: Option<String>,
+    back_wall_2: Option<String>,
+    back_wall_3: Option<String>,
+    back_wall_4: Option<String>,
+}
+
+impl Theme {
+    fn from_path(path: &str) -> Self {
+        let s = std::fs::read_to_string(path).unwrap();
+        let s = s.trim().replace("\r\n", "\n");
+
+        let mut theme = Theme {
+            ..Default::default()
+        };
+
+        for part in s.split("\n===\n") {
+            if part.starts_with("bglayer") {
+                let mut lines = part.lines();
+                println!("{:?}", lines);
+                lines.next();
+                theme.bg.push(BackgroundLayer {
+                    image: lines.next().expect("should exist").into(),
+
+                    off_x: lines.next().expect("sh").parse().expect("sh"),
+                    off_y: lines.next().expect("sh").parse().expect("sh"),
+
+                    para_factor_x: lines.next().expect("sh").parse().expect("sh"),
+                    para_factor_y: lines.next().expect("sh").parse().expect("sh"),
+
+                    scroll_x: lines.next().expect("sh").parse().expect("sh"),
+                    scroll_y: lines.next().expect("sh").parse().expect("sh"),
+                    mod_x: lines.next().expect("sh").parse().expect("sh"),
+                    mod_y: lines.next().expect("sh").parse().expect("sh"),
+                })
+            } else {
+                // tilesets
+                for line in part.lines() {
+                    let mut parts = line.split(": ");
+                    let (a, b) = (
+                        parts.next().expect("should exist"),
+                        parts.next().expect("should exist"),
+                    );
+                    match a.trim() {
+                        "wall_1" => theme.wall_1 = Some(b.trim().into()),
+                        "wall_2" => theme.wall_2 = Some(b.trim().into()),
+                        "wall_3" => theme.wall_3 = Some(b.trim().into()),
+                        "wall_4" => theme.wall_4 = Some(b.trim().into()),
+
+                        "back_wall_1" => theme.back_wall_1 = Some(b.trim().into()),
+                        "back_wall_2" => theme.back_wall_2 = Some(b.trim().into()),
+                        "back_wall_3" => theme.back_wall_3 = Some(b.trim().into()),
+                        "back_wall_4" => theme.back_wall_4 = Some(b.trim().into()),
+
+                        _ => (),
+                    }
+                }
+            }
+        }
+
+        theme
+    }
+
+    async fn load_textures(&self, textures: &mut HashMap<String, Texture2D>) {
+        for t in self.bg.iter() {
+            texture!(textures, &t.image);
+        }
+        if self.wall_1.is_some() {
+            texture!(textures, self.wall_1.as_ref().expect("is some"));
+        }
+        if self.wall_2.is_some() {
+            texture!(textures, self.wall_1.as_ref().expect("is some"));
+        }
+        if self.wall_3.is_some() {
+            texture!(textures, self.wall_1.as_ref().expect("is some"));
+        }
+        if self.wall_4.is_some() {
+            texture!(textures, self.wall_1.as_ref().expect("is some"));
+        }
+
+        if self.back_wall_1.is_some() {
+            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+        }
+        if self.back_wall_2.is_some() {
+            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+        }
+        if self.back_wall_3.is_some() {
+            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+        }
+        if self.back_wall_4.is_some() {
+            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+        }
+    }
+}
+
+struct Adjacencies {
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
+}
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "notmarioland".to_owned(),
@@ -129,6 +255,8 @@ async fn main() {
 
     let mut state = State::Menu(MenuState::Main(0));
 
+    let mut themes = vec![];
+
     loop {
         clear_background(WHITE);
 
@@ -200,6 +328,18 @@ async fn main() {
                                 paused = false;
                                 render_off_x = 0.;
                                 render_off_y = 0.;
+
+                                themes = levelset.themes.clone();
+
+                                if themes.len() == 0 {
+                                    themes.push(Theme {
+                                        ..Default::default()
+                                    })
+                                }
+
+                                for t in themes.iter() {
+                                    t.load_textures(&mut textures).await;
+                                }
 
                                 state = State::Game {
                                     levelset: Some(levelset),
@@ -544,6 +684,15 @@ async fn main() {
                     }
                 }
 
+                for layer in themes[level.theme].bg.iter() {
+                    let x = layer.off_x + layer.para_factor_x;
+                    let y = layer.off_y + layer.para_factor_y;
+
+                    let t = texture_cache!(&mut textures, &layer.image);
+
+                    draw_texture(&t, x as f32, y as f32, WHITE);
+                }
+
                 // draw_rectangle(255., 191., 2., 2., BLUE);
                 let d = level.dimensions();
                 // draw the rest of the level as well!!
@@ -557,6 +706,7 @@ async fn main() {
                         &global_state.changed_tiles,
                         true,
                         &mut textures,
+                        &themes,
                     );
                 }
 
@@ -594,7 +744,12 @@ async fn main() {
                     color_u8!(0, 0, 0, 51),
                 );
 
-                level.draw(render_off_x as i32, render_off_y as i32, &mut textures);
+                level.draw(
+                    render_off_x as i32,
+                    render_off_y as i32,
+                    &mut textures,
+                    &themes[level.theme],
+                );
 
                 draw_rectangle(
                     0.,

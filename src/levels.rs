@@ -1,5 +1,5 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
-use crate::texture_cache;
+use crate::{texture_cache, Adjacencies, BackgroundLayer, Theme};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -191,10 +191,52 @@ impl Tile {
         }
     }
 
-    pub fn draw(&self, x: i32, y: i32, textures: &mut HashMap<String, Texture2D>) {
+    pub fn draw(
+        &self,
+        x: i32,
+        y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        theme: &Theme,
+        touching: &Adjacencies,
+    ) {
         match self {
             Self::Empty => (),
-            Self::Wall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK),
+            Self::Wall => {
+                if theme.wall_1.is_some() {
+                    let t = texture_cache!(textures, theme.wall_1.as_ref().expect("it exists"));
+                    let mut render_offset = (0, 0);
+                    if touching.up {
+                        render_offset.1 += 32
+                    };
+                    if touching.down {
+                        render_offset.1 += 16
+                    };
+                    if touching.left {
+                        render_offset.0 += 32
+                    };
+                    if touching.right {
+                        render_offset.0 += 16
+                    };
+
+                    draw_texture_ex(
+                        &t,
+                        x as f32,
+                        y as f32,
+                        WHITE,
+                        DrawTextureParams {
+                            source: Some(Rect {
+                                x: render_offset.0 as f32,
+                                y: render_offset.1 as f32,
+                                w: 16.,
+                                h: 16.,
+                            }),
+                            ..Default::default()
+                        },
+                    )
+                } else {
+                    draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK)
+                }
+            }
             Self::BackWall => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY),
             Self::Door(_) | Self::DoorGeneric => {
                 draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BROWN)
@@ -1142,6 +1184,7 @@ pub struct LevelRaw {
     tiles: Vec<Vec<Vec<Tile>>>,
     exits: SideExits,
     door_exits: Vec<usize>,
+    theme: usize,
 }
 
 impl LevelRaw {
@@ -1182,14 +1225,25 @@ impl LevelRaw {
         my_ind: usize,
         subs: &HashMap<(usize, usize, usize, usize), Tile>,
         textures: &mut HashMap<String, Texture2D>,
+        theme: &Theme,
     ) {
+        let max_y = self.tiles[0].len() - 1;
+        let max_x = self.tiles[0][0].len() - 1;
         for (la, layer) in self.tiles.iter().enumerate() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {
+                    let adj = Adjacencies {
+                        up: y == 0 || layer[y - 1][x] == *tile,
+                        down: y == max_y || layer[y + 1][x] == *tile,
+                        left: x == 0 || layer[y][x - 1] == *tile,
+                        right: x == max_x || layer[y][x + 1] == *tile,
+                    };
                     subs.get(&(my_ind, la, y, x)).unwrap_or(tile).draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
                         textures,
+                        theme,
+                        &adj,
                     )
                 }
             }
@@ -1205,9 +1259,10 @@ impl LevelRaw {
         subs: &HashMap<(usize, usize, usize, usize), Tile>,
         skip_actually_drawing: bool,
         textures: &mut HashMap<String, Texture2D>,
+        themes: &[Theme],
     ) {
         if !skip_actually_drawing {
-            self.draw(off_x, off_y, my_ind, subs, textures)
+            self.draw(off_x, off_y, my_ind, subs, textures, &themes[self.theme])
         }
         if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
             let ind = self.exits.left.expect("is some");
@@ -1230,6 +1285,7 @@ impl LevelRaw {
                 subs,
                 false,
                 textures,
+                themes,
             );
         };
         if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
@@ -1253,6 +1309,7 @@ impl LevelRaw {
                 subs,
                 false,
                 textures,
+                themes,
             );
         };
         if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
@@ -1276,6 +1333,7 @@ impl LevelRaw {
                 subs,
                 false,
                 textures,
+                themes,
             );
         };
         if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
@@ -1299,6 +1357,7 @@ impl LevelRaw {
                 subs,
                 false,
                 textures,
+                themes,
             );
         };
     }
@@ -1310,6 +1369,7 @@ pub struct Level {
     pub objects: Vec<Box<dyn Object>>,
     pub side_exits: SideExits,
     pub side_offsets: SideOffsets,
+    pub theme: usize,
 }
 
 impl Level {
@@ -1349,14 +1409,30 @@ impl Level {
         }
         panic!("we should have a player! if we don't something has gone very wrong")
     }
-    pub fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
+    pub fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        theme: &Theme,
+    ) {
+        let max_y = self.tiles[0].len() - 1;
+        let max_x = self.tiles[0][0].len() - 1;
         for layer in self.tiles.iter() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {
+                    let adj = Adjacencies {
+                        up: y == 0 || layer[y - 1][x] == *tile,
+                        down: y == max_y || layer[y + 1][x] == *tile,
+                        left: x == 0 || layer[y][x - 1] == *tile,
+                        right: x == max_x || layer[y][x + 1] == *tile,
+                    };
                     tile.draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
                         textures,
+                        theme,
+                        &adj,
                     )
                 }
             }
@@ -1500,6 +1576,7 @@ impl Level {
             objects,
             side_exits: l.exits,
             side_offsets,
+            theme: 0,
         }
     }
 }
@@ -1594,12 +1671,14 @@ fn load_level(path: &str) -> LevelRaw {
         tiles,
         exits,
         door_exits,
+        theme: 0,
     }
 }
 
 pub struct Levelset {
     pub name: String,
     pub levels: Vec<LevelRaw>,
+    pub themes: Vec<Theme>,
 }
 
 pub fn load_levelset(path: &str) -> Levelset {
@@ -1621,5 +1700,21 @@ pub fn load_levelset(path: &str) -> Levelset {
         levels.push(load_level(&format!("{}/{}.lvl", path, l)));
     }
 
-    Levelset { name, levels }
+    let mut themes = vec![];
+    let np = parts.next();
+    if np.is_some() {
+        for l in np.expect("is some").lines() {
+            let l = l.trim();
+
+            println!("reading {}/{}.nmltheme", path, l);
+
+            themes.push(Theme::from_path(&format!("{}/{}.nmltheme", path, l)));
+        }
+    }
+
+    Levelset {
+        name,
+        levels,
+        themes,
+    }
 }
