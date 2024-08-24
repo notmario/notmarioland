@@ -1,0 +1,25 @@
+locked up
+===
+#: wall
+p: player
+.: empty
+e: exit_anchor
+X: spikes
+^: onewayup
+>: onewayright
+R: redlock
+g: goal
+===
+left: 4
+===
+###########
+######...##
+######.g.##
+######...##
+######...##
+######RRR##
+e........##
+.........##
+..p......##
+###########
+###########

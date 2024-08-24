@@ -1,5 +1,5 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
-use crate::{texture_cache, Adjacencies, BackgroundLayer, Theme};
+use crate::{texture_cache, Adjacencies, Theme};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -936,7 +936,7 @@ impl Object for Player {
             } else {
                 self.vy = self.vy.min(TILE_SIZE / 32);
             }
-            if *keys_pressed.entry(KeyCode::Z).or_insert(false) && !self.grounded {
+            if *keys_pressed.entry(KeyCode::Z).or_insert(false) && self.air_frames != 0 {
                 self.grounded = false;
                 self.freeze_timer = 14;
                 if self.wall_sliding < 0 {
@@ -964,6 +964,8 @@ impl Object for Player {
         // allow for the player to store grounded value while wall sliding
         if self.wall_sliding == 0 {
             self.air_frames += 1;
+        } else {
+            self.air_frames = self.air_frames.max(1)
         }
         if is_key_down(KeyCode::Down) {
             self.air_frames += 15
