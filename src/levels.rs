@@ -104,6 +104,38 @@ pub enum Tile {
     Goal,
 }
 
+fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
+    let mut render_offset = (0, 0);
+    if touching.up {
+        render_offset.1 += 32
+    };
+    if touching.down {
+        render_offset.1 += 16
+    };
+    if touching.left {
+        render_offset.0 += 32
+    };
+    if touching.right {
+        render_offset.0 += 16
+    };
+
+    draw_texture_ex(
+        &t,
+        x as f32,
+        y as f32,
+        WHITE,
+        DrawTextureParams {
+            source: Some(Rect {
+                x: render_offset.0 as f32,
+                y: render_offset.1 as f32,
+                w: 16.,
+                h: 16.,
+            }),
+            ..Default::default()
+        },
+    )
+}
+
 impl Tile {
     pub fn is_solid(
         &self,
@@ -198,6 +230,42 @@ impl Tile {
             _ => Self::Empty,
         }
     }
+    // pull this out into its own function because yes
+    fn sprite(&self) -> Option<&'static str> {
+        match self {
+            Self::Door(_) | Self::DoorGeneric => Some("assets/door.png"),
+            Self::Spikes => Some("assets/spike.png"),
+
+            Self::RedKey => Some("assets/redkey.png"),
+            Self::YellowKey => Some("assets/yellowkey.png"),
+            Self::GreenKey => Some("assets/greenkey.png"),
+            Self::CyanKey => Some("assets/cyankey.png"),
+            Self::BlueKey => Some("assets/bluekey.png"),
+            Self::MagentaKey => Some("assets/magentakey.png"),
+
+            Self::RedLock => Some("assets/redlock.png"),
+            Self::YellowLock => Some("assets/yellowlock.png"),
+            Self::GreenLock => Some("assets/greenlock.png"),
+            Self::CyanLock => Some("assets/cyanlock.png"),
+            Self::BlueLock => Some("assets/bluelock.png"),
+            Self::MagentaLock => Some("assets/magentalock.png"),
+
+            Self::SawLauncherLeft => Some("assets/sawlauncherleft.png"),
+            Self::SawLauncherRight => Some("assets/sawlauncherright.png"),
+            Self::SawLauncherUp => Some("assets/sawlauncherup.png"),
+            Self::SawLauncherDown => Some("assets/sawlauncherdown.png"),
+
+            Self::SlowSawLauncherLeft => Some("assets/slowsawlauncherleft.png"),
+            Self::SlowSawLauncherRight => Some("assets/slowsawlauncherright.png"),
+            Self::SlowSawLauncherUp => Some("assets/slowsawlauncherup.png"),
+            Self::SlowSawLauncherDown => Some("assets/slowsawlauncherdown.png"),
+
+            Self::Secret => Some("assets/secret.png"),
+            Self::Goal => Some("assets/goal.png"),
+
+            _ => None,
+        }
+    }
 
     pub fn draw(
         &self,
@@ -219,35 +287,7 @@ impl Tile {
                 };
                 if te.is_some() {
                     let t = texture_cache!(textures, te.as_ref().expect("it exists"));
-                    let mut render_offset = (0, 0);
-                    if touching.up {
-                        render_offset.1 += 32
-                    };
-                    if touching.down {
-                        render_offset.1 += 16
-                    };
-                    if touching.left {
-                        render_offset.0 += 32
-                    };
-                    if touching.right {
-                        render_offset.0 += 16
-                    };
-
-                    draw_texture_ex(
-                        &t,
-                        x as f32,
-                        y as f32,
-                        WHITE,
-                        DrawTextureParams {
-                            source: Some(Rect {
-                                x: render_offset.0 as f32,
-                                y: render_offset.1 as f32,
-                                w: 16.,
-                                h: 16.,
-                            }),
-                            ..Default::default()
-                        },
-                    )
+                    tilemap_draw(&t, x, y, touching);
                 } else {
                     draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK)
                 }
@@ -262,46 +302,10 @@ impl Tile {
                 };
                 if te.is_some() {
                     let t = texture_cache!(textures, te.as_ref().expect("it exists"));
-                    let mut render_offset = (0, 0);
-                    if touching.up {
-                        render_offset.1 += 32
-                    };
-                    if touching.down {
-                        render_offset.1 += 16
-                    };
-                    if touching.left {
-                        render_offset.0 += 32
-                    };
-                    if touching.right {
-                        render_offset.0 += 16
-                    };
-
-                    draw_texture_ex(
-                        &t,
-                        x as f32,
-                        y as f32,
-                        WHITE,
-                        DrawTextureParams {
-                            source: Some(Rect {
-                                x: render_offset.0 as f32,
-                                y: render_offset.1 as f32,
-                                w: 16.,
-                                h: 16.,
-                            }),
-                            ..Default::default()
-                        },
-                    )
+                    tilemap_draw(&t, x, y, touching);
                 } else {
                     draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY)
                 }
-            }
-            Self::Door(_) | Self::DoorGeneric => {
-                let t = texture_cache!(textures, "assets/door.png");
-                draw_texture(&t, x as f32, y as f32, WHITE)
-            }
-            Self::Spikes => {
-                let t = texture_cache!(textures, "assets/spike.png");
-                draw_texture(&t, x as f32, y as f32, WHITE)
             }
             Self::OneWayLeft => draw_rect_i32(x, y, TILE_PIXELS / 8, TILE_PIXELS, BLACK),
             Self::OneWayUp => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS / 8, BLACK),
@@ -319,91 +323,14 @@ impl Tile {
                 TILE_PIXELS / 8,
                 BLACK,
             ),
-            Self::RedKey
-            | Self::YellowKey
-            | Self::GreenKey
-            | Self::CyanKey
-            | Self::BlueKey
-            | Self::MagentaKey => {
-                let t = texture_cache!(
-                    textures,
-                    match self {
-                        Self::RedKey => "assets/redkey.png",
-                        Self::YellowKey => "assets/yellowkey.png",
-                        Self::GreenKey => "assets/greenkey.png",
-                        Self::CyanKey => "assets/cyankey.png",
-                        Self::BlueKey => "assets/bluekey.png",
-                        Self::MagentaKey => "assets/magentakey.png",
-                        _ => unreachable!(),
-                    }
-                );
-                draw_texture(&t, x as f32, y as f32, WHITE)
+            _ => {
+                let t = self.sprite();
+                if t.is_some() {
+                    let t = texture_cache!(textures, t.expect("is some"));
+
+                    draw_texture(&t, x as f32, y as f32, WHITE)
+                }
             }
-            Self::RedLock
-            | Self::YellowLock
-            | Self::GreenLock
-            | Self::CyanLock
-            | Self::BlueLock
-            | Self::MagentaLock => {
-                let t = texture_cache!(
-                    textures,
-                    match self {
-                        Self::RedLock => "assets/redlock.png",
-                        Self::YellowLock => "assets/yellowlock.png",
-                        Self::GreenLock => "assets/greenlock.png",
-                        Self::CyanLock => "assets/cyanlock.png",
-                        Self::BlueLock => "assets/bluelock.png",
-                        Self::MagentaLock => "assets/magentalock.png",
-                        _ => unreachable!(),
-                    }
-                );
-                draw_texture(&t, x as f32, y as f32, WHITE)
-            }
-            Self::SawLauncherLeft
-            | Self::SawLauncherRight
-            | Self::SawLauncherUp
-            | Self::SawLauncherDown => {
-                let t = texture_cache!(
-                    textures,
-                    match self {
-                        Self::SawLauncherLeft => "assets/sawlauncherleft.png",
-                        Self::SawLauncherRight => "assets/sawlauncherright.png",
-                        Self::SawLauncherUp => "assets/sawlauncherup.png",
-                        Self::SawLauncherDown => "assets/sawlauncherdown.png",
-                        _ => unreachable!(),
-                    }
-                );
-                draw_texture(&t, x as f32, y as f32, WHITE)
-            }
-            Self::SlowSawLauncherLeft
-            | Self::SlowSawLauncherRight
-            | Self::SlowSawLauncherUp
-            | Self::SlowSawLauncherDown => {
-                let t = texture_cache!(
-                    textures,
-                    match self {
-                        Self::SlowSawLauncherLeft => "assets/slowsawlauncherleft.png",
-                        Self::SlowSawLauncherRight => "assets/slowsawlauncherright.png",
-                        Self::SlowSawLauncherUp => "assets/slowsawlauncherup.png",
-                        Self::SlowSawLauncherDown => "assets/slowsawlauncherdown.png",
-                        _ => unreachable!(),
-                    }
-                );
-                draw_texture(&t, x as f32, y as f32, WHITE)
-            }
-            Self::Secret | Self::Goal => {
-                let t = texture_cache!(
-                    textures,
-                    match self {
-                        Self::Secret => "assets/secret.png",
-                        Self::Goal => "assets/goal.png",
-                        _ => unreachable!(),
-                    }
-                );
-                draw_texture(&t, x as f32, y as f32, WHITE)
-            }
-            // _ => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, MAGENTA),
-            _ => (),
         }
     }
 }
@@ -443,6 +370,42 @@ impl AABB {
     // }
 }
 
+fn check_tilemap_condition<F>(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>, condition: F) -> bool
+where
+    F: Fn(Tile, usize, usize) -> bool,
+{
+    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
+    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+
+    let xi: Box<[i32]> = if extra_x {
+        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
+    };
+    let yi: Box<[i32]> = if extra_y {
+        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
+    } else {
+        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
+    };
+
+    for x in xi.iter() {
+        for y in yi.iter() {
+            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
+            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
+                continue;
+            }
+            let (tx, ty) = (tx as usize, ty as usize);
+            for l in map {
+                if condition(l[ty][tx], ty, tx) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 fn check_tilemap_collision(
     b_box: AABB,
     c_box: AABB,
@@ -450,108 +413,24 @@ fn check_tilemap_collision(
     direction: Direction,
     gs: &GlobalState,
 ) -> bool {
-    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
-    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
+    check_tilemap_condition(c_box, map, |t, ty, tx| {
+        let my_aabb = AABB {
+            x: tx as i32 * TILE_SIZE,
+            y: ty as i32 * TILE_SIZE,
+            w: TILE_SIZE,
+            h: TILE_SIZE,
+        };
 
-    let xi: Box<[i32]> = if extra_x {
-        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
-    };
-    let yi: Box<[i32]> = if extra_y {
-        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
-    };
-
-    for x in xi.iter() {
-        for y in yi.iter() {
-            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
-            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
-                continue;
-            }
-            let (tx, ty) = (tx as usize, ty as usize);
-            let my_aabb = AABB {
-                x: tx as i32 * TILE_SIZE,
-                y: ty as i32 * TILE_SIZE,
-                w: TILE_SIZE,
-                h: TILE_SIZE,
-            };
-            for l in map {
-                if l[ty][tx].is_solid(b_box, c_box, my_aabb, direction, gs) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
+        t.is_solid(b_box, c_box, my_aabb, direction, gs)
+    })
 }
 
 pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
-    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
-    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
-
-    let xi: Box<[i32]> = if extra_x {
-        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
-    };
-    let yi: Box<[i32]> = if extra_y {
-        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
-    };
-
-    for x in xi.iter() {
-        for y in yi.iter() {
-            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
-            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
-                continue;
-            }
-            let (tx, ty) = (tx as usize, ty as usize);
-            for l in map {
-                if l[ty][tx].is_deadly() {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
+    check_tilemap_condition(c_box, map, |t, _, _| t.is_deadly())
 }
 
 pub fn check_tilemap_win(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
-    let extra_x = (c_box.x + c_box.w) % TILE_SIZE != 0;
-    let extra_y = (c_box.y + c_box.h) % TILE_SIZE != 0;
-
-    let xi: Box<[i32]> = if extra_x {
-        (0..=c_box.w).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.w).step_by(TILE_SIZE as usize).collect()
-    };
-    let yi: Box<[i32]> = if extra_y {
-        (0..=c_box.h).step_by(TILE_SIZE as usize).collect()
-    } else {
-        (0..c_box.h).step_by(TILE_SIZE as usize).collect()
-    };
-
-    for x in xi.iter() {
-        for y in yi.iter() {
-            let (tx, ty) = ((c_box.x + x) / TILE_SIZE, (c_box.y + y) / TILE_SIZE);
-            if tx < 0 || tx >= map[0][0].len() as i32 || ty < 0 || ty >= map[0].len() as i32 {
-                continue;
-            }
-            let (tx, ty) = (tx as usize, ty as usize);
-            for l in map {
-                if l[ty][tx] == Tile::Goal {
-                    return true;
-                }
-            }
-        }
-    }
-
-    false
+    check_tilemap_condition(c_box, map, |t, _, _| t == Tile::Goal)
 }
 
 pub fn check_object_death(c_box: AABB, objects: &Vec<Box<dyn Object>>) -> bool {
@@ -559,7 +438,6 @@ pub fn check_object_death(c_box: AABB, objects: &Vec<Box<dyn Object>>) -> bool {
         match o.get_type() {
             "SAW" => {
                 if o.get_aabb().smaller_by(PIXEL_SIZE * 2).intersect(&c_box) {
-                    // println!("{:?} {:?}", o.get_aabb(), c_box);
                     return true;
                 }
             }
