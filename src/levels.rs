@@ -830,6 +830,10 @@ impl Object for Player {
 
         if self.grounded && *keys_pressed.entry(KeyCode::Z).or_insert(false) {
             self.vy = -TILE_SIZE * 5 / 16;
+            if is_key_down(KeyCode::Up) {
+                self.vy = -(self.vx.abs().max(TILE_SIZE * 5 / 16));
+                self.vx /= 8;
+            }
             if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
                 self.vx *= 9;
                 self.vx /= 8;
