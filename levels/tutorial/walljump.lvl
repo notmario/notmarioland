@@ -9,9 +9,9 @@ X: spikes
 <: onewayleft
 d: door
 ===
-left: 7
-door: 3
-right: 4
+left: spikes2
+door: secret1
+right: fork
 ===
 ########################################
 ############.............###############

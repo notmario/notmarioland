@@ -8,9 +8,9 @@ X: spikes
 ^: onewayup
 <: onewayleft
 ===
-left: 2
-up: 5
-right: 6
+left: walljump
+up: key
+right: gate
 ===
 #########################e..############
 #########...................############

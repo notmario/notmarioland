@@ -1589,7 +1589,7 @@ impl Level {
     }
 }
 
-fn load_level(path: &str) -> LevelRaw {
+fn load_level(path: &str, level_inds: &HashMap<&str, usize>) -> LevelRaw {
     let level_contents = std::fs::read_to_string(path).unwrap();
     let level_contents = level_contents.trim().replace("\r\n", "\n");
 
@@ -1634,7 +1634,10 @@ fn load_level(path: &str) -> LevelRaw {
             let left_half = halves.next().expect("should have two halves").trim();
 
             let right_half = halves.next().expect("should have two halves").trim();
-            let right_half: usize = right_half.parse().expect("should have valid index");
+            let right_half: usize = match right_half.parse() {
+                Ok(i) => i,
+                Err(_) => *level_inds.get(right_half).expect("should exist"),
+            };
 
             match left_half {
                 "left" => exits.left = Some(right_half),
@@ -1704,13 +1707,24 @@ pub fn load_levelset(path: &str) -> Levelset {
 
     let mut secret_count = 0;
 
-    let mut levels = vec![];
-    for l in parts.next().expect("should have part").lines() {
-        let l = l.trim();
+    let level_names: Vec<&str> = parts
+        .next()
+        .expect("should have part")
+        .lines()
+        .map(|n| n.trim())
+        .collect();
 
+    let level_inds: HashMap<&str, usize> = level_names
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (*n, i))
+        .collect();
+
+    let mut levels = vec![];
+    for l in level_names {
         // println!("reading {}/{}.lvl", path, l);
 
-        let lev = load_level(&format!("{}/{}.lvl", path, l));
+        let lev = load_level(&format!("{}/{}.lvl", path, l), &level_inds);
 
         secret_count += lev.secret_count();
 

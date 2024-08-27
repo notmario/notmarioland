@@ -7,8 +7,8 @@ e: exit_anchor
 X: spikes
 ^: onewayup
 ===
-left: 0
-right: 7
+left: start
+right: spikes2
 ===
 ########################################
 ########################################
