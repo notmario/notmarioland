@@ -166,6 +166,54 @@ struct Adjacencies {
     right: bool,
 }
 
+fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color) {
+    let k = std::f32::consts::FRAC_PI_3.sin();
+
+    draw_rectangle(
+        x - r - SCREEN_WIDTH as f32,
+        y - SCREEN_HEIGHT as f32,
+        SCREEN_WIDTH as f32,
+        SCREEN_HEIGHT as f32 * 2.,
+        c,
+    );
+    draw_rectangle(
+        x + r,
+        y - SCREEN_HEIGHT as f32,
+        SCREEN_WIDTH as f32,
+        SCREEN_HEIGHT as f32 * 2.,
+        c,
+    );
+    draw_rectangle(
+        x - r,
+        y - r - SCREEN_HEIGHT as f32,
+        r * 2.,
+        SCREEN_HEIGHT as f32,
+        c,
+    );
+
+    draw_rectangle(x - r, y + r * k, r * 2., SCREEN_HEIGHT as f32, c);
+
+    draw_triangle(
+        Vec2 { x: x - r, y: y - r },
+        Vec2 { x, y: y - r },
+        Vec2 {
+            x: x - r,
+            y: y + r * k,
+        },
+        c,
+    );
+
+    draw_triangle(
+        Vec2 { x: x + r, y: y - r },
+        Vec2 { x, y: y - r },
+        Vec2 {
+            x: x + r,
+            y: y + r * k,
+        },
+        c,
+    );
+}
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "notmarioland".to_owned(),
@@ -265,6 +313,7 @@ async fn main() {
     let mut themes = vec![];
     let mut deaths = 0;
     let mut secret_count = 0;
+    let mut transition_ticks: i32 = 0;
 
     loop {
         clear_background(WHITE);
@@ -341,6 +390,7 @@ async fn main() {
                                 themes = levelset.themes.clone();
                                 deaths = 0;
                                 secret_count = levelset.secret_count;
+                                transition_ticks = 0;
 
                                 if themes.len() == 0 {
                                     themes.push(Theme {
@@ -419,9 +469,21 @@ async fn main() {
                             *is_pressed = true
                         }
                     }
-
                     if remaining_timer * 60. >= 1. {
-                        remaining_timer -= 1. / 60.;
+                        transition_ticks += 1;
+                    }
+
+                    if transition_ticks == -1 {
+                        let level_raw =
+                            levelset.as_ref().expect("is some").levels[*current_ind].clone();
+                        *level = levels::Level::from_level_raw(
+                            level_raw,
+                            *current_ind,
+                            &global_state.changed_tiles,
+                        );
+                    }
+
+                    if remaining_timer * 60. >= 1. && transition_ticks >= 0 {
                         level.update(&mut keys_pressed, global_state);
 
                         let pbb = level.player_obj().get_aabb();
@@ -588,14 +650,7 @@ async fn main() {
                                 (p.vx, p.vy) = player_vel
                             } else {
                                 if levelset.is_some() {
-                                    let level_raw = levelset.as_ref().expect("is some").levels
-                                        [*current_ind]
-                                        .clone();
-                                    *level = levels::Level::from_level_raw(
-                                        level_raw,
-                                        *current_ind,
-                                        &global_state.changed_tiles,
-                                    );
+                                    transition_ticks = -20;
 
                                     deaths += 1;
                                 } else {
@@ -649,14 +704,7 @@ async fn main() {
                                 || levels::check_object_death(aabb, &level.objects)
                             {
                                 if levelset.is_some() {
-                                    let level_raw = levelset.as_ref().expect("is some").levels
-                                        [*current_ind]
-                                        .clone();
-                                    *level = levels::Level::from_level_raw(
-                                        level_raw,
-                                        *current_ind,
-                                        &global_state.changed_tiles,
-                                    );
+                                    transition_ticks = -20;
 
                                     deaths += 1;
                                 } else {
@@ -702,6 +750,9 @@ async fn main() {
                         };
                         render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
                         render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
+                    }
+                    if remaining_timer * 60. >= 1. {
+                        remaining_timer -= 1. / 60.;
                     }
                 }
 
@@ -771,6 +822,16 @@ async fn main() {
                     &mut textures,
                     &themes[level.theme],
                 );
+
+                let player_pos = level.focus_position();
+                if transition_ticks < 30 {
+                    draw_inverted_circle(
+                        (player_pos.0 / PIXEL_SIZE) as f32 + (render_off_x as i32) as f32,
+                        (player_pos.1 / PIXEL_SIZE) as f32 + (render_off_y as i32) as f32,
+                        64. * ((transition_ticks.abs() as f32) / 12.5).powi(4),
+                        BLACK,
+                    );
+                }
 
                 draw_rectangle(
                     0.,
