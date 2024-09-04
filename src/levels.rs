@@ -832,7 +832,11 @@ impl Object for Player {
             {
                 self.wall_sliding = self.vx.signum();
             }
-            self.vx = 0;
+            if can_wallslide {
+                self.vx = 0;
+            } else if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
+                self.vx *= -1;
+            }
         } else if remaining_movement.abs() > 0 {
             if self.wall_sliding != 0 {
                 self.vx = -self.vx.signum() * 4;
