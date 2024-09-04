@@ -12,6 +12,7 @@ pub struct GlobalState {
     pub keys: [i32; 6],
     pub timer: i32,
     pub secrets: i32,
+    pub jumps: i32,
 }
 
 impl GlobalState {
@@ -21,6 +22,7 @@ impl GlobalState {
             keys: [0; 6],
             timer: 0,
             secrets: 0,
+            jumps: 0,
         }
     }
 }
@@ -102,6 +104,9 @@ pub enum Tile {
 
     Secret,
     Goal,
+
+    JumpArrow,
+    JumpArrowOutline,
 }
 
 fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
@@ -227,6 +232,8 @@ impl Tile {
             "secret" => Self::Secret,
             "goal" => Self::Goal,
 
+            "jumparrow" => Self::JumpArrow,
+
             _ => Self::Empty,
         }
     }
@@ -262,6 +269,9 @@ impl Tile {
 
             Self::Secret => Some("assets/secret.png"),
             Self::Goal => Some("assets/goal.png"),
+
+            Self::JumpArrow => Some("assets/jumparrow.png"),
+            Self::JumpArrowOutline => Some("assets/jumparrowoutline.png"),
 
             _ => None,
         }
@@ -529,6 +539,10 @@ pub fn collect_keys(
                         gs.changed_tiles
                             .insert((my_screen, li, ty, tx), Tile::Empty);
                     }
+                    Tile::JumpArrow => {
+                        gs.jumps += 1;
+                        l[ty][tx] = Tile::JumpArrowOutline;
+                    }
 
                     _ => (),
                 }
@@ -665,7 +679,14 @@ pub trait Object {
     ) {
     }
 
-    fn draw(&self, _off_x: i32, _off_y: i32, _texture: &mut HashMap<String, Texture2D>) {}
+    fn draw(
+        &self,
+        _off_x: i32,
+        _off_y: i32,
+        _texture: &mut HashMap<String, Texture2D>,
+        _gs: &GlobalState,
+    ) {
+    }
 
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
@@ -828,7 +849,9 @@ impl Object for Player {
             }
         }
 
-        if self.grounded && *keys_pressed.entry(KeyCode::Z).or_insert(false) {
+        if (self.grounded || (global_state.jumps > 0 && self.freeze_timer <= 0))
+            && *keys_pressed.entry(KeyCode::Z).or_insert(false)
+        {
             self.vy = -TILE_SIZE * 5 / 16;
             if is_key_down(KeyCode::Up) {
                 self.vy = -(self.vx.abs().max(TILE_SIZE * 5 / 16));
@@ -837,6 +860,9 @@ impl Object for Player {
             if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
                 self.vx *= 9;
                 self.vx /= 8;
+            }
+            if !self.grounded {
+                global_state.jumps -= 1;
             }
             self.grounded = false;
         }
@@ -891,7 +917,13 @@ impl Object for Player {
         }
     }
 
-    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
+    fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        gs: &GlobalState,
+    ) {
         // draw_rect_i32(
         //     self.x / PIXEL_SIZE + off_x,
         //     self.y / PIXEL_SIZE + off_y,
@@ -953,7 +985,29 @@ impl Object for Player {
                 }),
                 ..Default::default()
             },
-        )
+        );
+
+        let rows = [("assets/arrowtiny.png", gs.jumps)]
+            .into_iter()
+            .filter(|k| k.1 != 0);
+        let count: i32 = rows.clone().map(|k| k.1).sum();
+        let angper = std::f32::consts::TAU / count as f32;
+
+        let mut off = 0;
+        for (i, r) in rows.enumerate() {
+            let t = texture_cache!(textures, r.0);
+            for j in 0..r.1 {
+                let a = (off + j) as f32 * angper - gs.timer as f32 * 0.004;
+                let (xoff, yoff) = a.sin_cos();
+                draw_texture(
+                    &t,
+                    (self.x / PIXEL_SIZE + off_x + TILE_PIXELS / 4 + (xoff * 16.) as i32) as f32,
+                    (self.y / PIXEL_SIZE + off_y + TILE_PIXELS / 4 + (yoff * 16.) as i32) as f32,
+                    WHITE,
+                )
+            }
+            off += r.1;
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -1055,7 +1109,13 @@ impl Object for Saw {
         }
     }
 
-    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {
+    fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        _gs: &GlobalState,
+    ) {
         // draw_rect_i32(
         //     self.x / PIXEL_SIZE + off_x,
         //     self.y / PIXEL_SIZE + off_y,
@@ -1133,7 +1193,14 @@ impl Object for SawLauncher {
     ) {
     }
 
-    fn draw(&self, off_x: i32, off_y: i32, textures: &mut HashMap<String, Texture2D>) {}
+    fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        _gs: &GlobalState,
+    ) {
+    }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -1427,6 +1494,7 @@ impl Level {
         off_y: i32,
         textures: &mut HashMap<String, Texture2D>,
         theme: &Theme,
+        gs: &GlobalState,
     ) {
         let max_y = self.tiles[0].len() - 1;
         let max_x = self.tiles[0][0].len() - 1;
@@ -1450,7 +1518,7 @@ impl Level {
             }
         }
         for o in self.objects.iter() {
-            o.draw(off_x, off_y, textures)
+            o.draw(off_x, off_y, textures, gs)
         }
     }
     pub fn update(

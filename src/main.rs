@@ -286,6 +286,9 @@ async fn main() {
         "assets/goal.png",
         "assets/door.png",
         "assets/spike.png",
+        "assets/jumparrow.png",
+        "assets/jumparrowoutline.png",
+        "assets/arrowtiny.png",
     ];
 
     for p in preload_textures {
@@ -481,6 +484,7 @@ async fn main() {
                             *current_ind,
                             &global_state.changed_tiles,
                         );
+                        global_state.jumps = 0;
                     }
 
                     if remaining_timer * 60. >= 1. && transition_ticks >= 0 {
@@ -515,6 +519,7 @@ async fn main() {
                                     *current_ind,
                                     &global_state.changed_tiles,
                                 );
+                                global_state.jumps = 0;
                                 let new_off_y = level
                                     .side_offsets
                                     .right
@@ -560,6 +565,7 @@ async fn main() {
                                     *current_ind,
                                     &global_state.changed_tiles,
                                 );
+                                global_state.jumps = 0;
                                 let new_off_y =
                                     level.side_offsets.left.expect("should have an exit anchor");
 
@@ -596,6 +602,7 @@ async fn main() {
                                     *current_ind,
                                     &global_state.changed_tiles,
                                 );
+                                global_state.jumps = 0;
                                 let new_off_x =
                                     level.side_offsets.down.expect("should have an exit anchor");
                                 let new_off_y = level.dimensions().1 * TILE_SIZE;
@@ -635,6 +642,7 @@ async fn main() {
                                     *current_ind,
                                     &global_state.changed_tiles,
                                 );
+                                global_state.jumps = 0;
                                 let new_off_x =
                                     level.side_offsets.up.expect("should have an exit anchor");
 
@@ -680,6 +688,7 @@ async fn main() {
                                         *current_ind,
                                         &global_state.changed_tiles,
                                     );
+                                    global_state.jumps = 0;
 
                                     let p_pos = levels::find_door(old_ind, &level.tiles);
                                     if let Some((x, y)) = p_pos {
@@ -821,6 +830,7 @@ async fn main() {
                     render_off_y as i32,
                     &mut textures,
                     &themes[level.theme],
+                    &global_state,
                 );
 
                 let player_pos = level.focus_position();
