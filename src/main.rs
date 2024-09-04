@@ -170,28 +170,28 @@ fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color) {
     let k = std::f32::consts::FRAC_PI_3.sin();
 
     draw_rectangle(
-        x - r - SCREEN_WIDTH as f32,
-        y - SCREEN_HEIGHT as f32,
-        SCREEN_WIDTH as f32,
-        SCREEN_HEIGHT as f32 * 2.,
+        x - r - SCREEN_WIDTH as f32 * 2.,
+        y - SCREEN_HEIGHT as f32 * 2.,
+        SCREEN_WIDTH as f32 * 2.,
+        SCREEN_HEIGHT as f32 * 4.,
         c,
     );
     draw_rectangle(
         x + r,
-        y - SCREEN_HEIGHT as f32,
-        SCREEN_WIDTH as f32,
-        SCREEN_HEIGHT as f32 * 2.,
+        y - SCREEN_HEIGHT as f32 * 2.,
+        SCREEN_WIDTH as f32 * 2.,
+        SCREEN_HEIGHT as f32 * 4.,
         c,
     );
     draw_rectangle(
         x - r,
-        y - r - SCREEN_HEIGHT as f32,
+        y - r - SCREEN_HEIGHT as f32 * 2.,
         r * 2.,
-        SCREEN_HEIGHT as f32,
+        SCREEN_HEIGHT as f32 * 2.,
         c,
     );
 
-    draw_rectangle(x - r, y + r * k, r * 2., SCREEN_HEIGHT as f32, c);
+    draw_rectangle(x - r, y + r * k, r * 2., SCREEN_HEIGHT as f32 * 2., c);
 
     draw_triangle(
         Vec2 { x: x - r, y: y - r },

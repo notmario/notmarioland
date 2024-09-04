@@ -299,7 +299,13 @@ impl Tile {
                     let t = texture_cache!(textures, te.as_ref().expect("it exists"));
                     tilemap_draw(&t, x, y, touching);
                 } else {
-                    draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, BLACK)
+                    draw_rect_i32(
+                        x,
+                        y,
+                        TILE_PIXELS,
+                        TILE_PIXELS,
+                        if self == &Self::Wall4 { BLUE } else { BLACK },
+                    )
                 }
             }
             Self::BackWall | Self::BackWall2 | Self::BackWall3 | Self::BackWall4 => {
@@ -433,6 +439,10 @@ fn check_tilemap_collision(
 
         t.is_solid(b_box, c_box, my_aabb, direction, gs)
     })
+}
+
+fn check_tilemap_wallslideable(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
+    !check_tilemap_condition(c_box, map, |t, _, _| t == Tile::Wall4)
 }
 
 pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
@@ -813,10 +823,12 @@ impl Object for Player {
             Direction::h_vel(self.vx),
             &global_state,
         ) {
+            let can_wallslide = check_tilemap_wallslideable(self.get_aabb(), tiles);
             self.x -= remaining_movement;
             self.freeze_timer = 0;
-            if (self.vx < 0 && is_key_down(KeyCode::Left))
-                || (self.vx > 0 && is_key_down(KeyCode::Right))
+            if ((self.vx < 0 && is_key_down(KeyCode::Left))
+                || (self.vx > 0 && is_key_down(KeyCode::Right)))
+                && can_wallslide
             {
                 self.wall_sliding = self.vx.signum();
             }
