@@ -1016,7 +1016,7 @@ impl Object for Player {
             let frames = 80 - frames;
 
             if frames < 30 {
-                let k = 30 - frames;
+                let k = 45 - frames;
                 draw_texture_ex(
                     &t,
                     (self.x / PIXEL_SIZE + off_x + rand::gen_range(-k, k) / 15) as f32,
