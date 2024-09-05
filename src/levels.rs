@@ -1088,28 +1088,39 @@ impl Object for Player {
                 },
             );
 
-            let rows = [("assets/arrowtiny.png", gs.jumps)]
+            let mut rows = [("assets/arrowtiny.png", gs.jumps)]
                 .into_iter()
-                .filter(|k| k.1 != 0);
-            let count: i32 = rows.clone().map(|k| k.1).sum();
-            let angper = std::f32::consts::TAU / count as f32;
+                .filter(|k| k.1 != 0)
+                .map(|(img, count)| std::iter::once(img).cycle().take(count as usize))
+                .flatten();
+            let mut count = rows.clone().count() as i32;
+            let mut shells = vec![];
+            let mut step = 16;
+            while count > 0 {
+                shells.push(count.min(step));
+                count -= step;
+                step += 6;
+            }
 
-            let mut off = 0;
-            for (_, r) in rows.enumerate() {
-                let t = texture_cache!(textures, r.0);
-                for j in 0..r.1 {
-                    let a = (off + j) as f32 * angper - gs.timer as f32 * 0.004;
+            for (i, s) in shells.iter().enumerate() {
+                let angper = std::f32::consts::TAU / *s as f32;
+                let rad = 16. + 6. * i as f32;
+                for off in 0..*s {
+                    let r = rows.next().expect(
+                        "number of elements should match the number of items allotted in shells",
+                    );
+                    let t = texture_cache!(textures, r);
+                    let a = off as f32 * angper - gs.timer as f32 * 0.004 * (1. + i as f32 / 2.);
                     let (xoff, yoff) = a.sin_cos();
                     draw_texture(
                         &t,
-                        (self.x / PIXEL_SIZE + off_x + TILE_PIXELS / 4 + (xoff * 16.) as i32)
+                        (self.x / PIXEL_SIZE + off_x + TILE_PIXELS / 4 + (xoff * rad) as i32)
                             as f32,
-                        (self.y / PIXEL_SIZE + off_y + TILE_PIXELS / 4 + (yoff * 16.) as i32)
+                        (self.y / PIXEL_SIZE + off_y + TILE_PIXELS / 4 + (yoff * rad) as i32)
                             as f32,
                         WHITE,
-                    )
+                    );
                 }
-                off += r.1;
             }
         }
     }
@@ -1380,10 +1391,29 @@ impl Object for ArrowRespawn {
         off_x: i32,
         off_y: i32,
         textures: &mut HashMap<String, Texture2D>,
-        _gs: &GlobalState,
+        gs: &GlobalState,
         _t: &TransitionAnimationType,
     ) {
         let t = texture_cache!(textures, "assets/jumparrowfill.png");
+
+        let k = if gs
+            .collected_jump_arrows
+            .contains(&(self.layer, self.yi, self.xi))
+        {
+            0
+        } else {
+            255
+        };
+
+        draw_texture_ex(
+            &t,
+            (self.x / PIXEL_SIZE + off_x) as f32,
+            (self.y / PIXEL_SIZE + off_y) as f32,
+            color_u8!(255, k, k, 63),
+            DrawTextureParams {
+                ..Default::default()
+            },
+        );
 
         let size = self.frames / 15;
 
