@@ -12,7 +12,7 @@ const MAX_PLAYER_SPEED: i32 = TILE_SIZE * 3 / 16;
 const PLAYER_ACCEL: i32 = TILE_SIZE / 16;
 
 const SCREEN_WIDTH: i32 = 640;
-const SCREEN_HEIGHT: i32 = 360;
+const SCREEN_HEIGHT: i32 = 368;
 
 mod levels;
 use levels::Object;
@@ -399,8 +399,12 @@ async fn main() {
                                 let current_ind = 0; // we assume the first level is index 0
 
                                 let level_raw = levelset.levels[current_ind].clone();
-                                let level =
-                                    levels::Level::from_level_raw(level_raw, 0, &HashMap::new());
+                                let level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    0,
+                                    &levelset.levels,
+                                    &HashMap::new(),
+                                );
 
                                 paused = false;
                                 render_off_x = 0.;
@@ -502,6 +506,7 @@ async fn main() {
                             *level = levels::Level::from_level_raw(
                                 level_raw,
                                 *current_ind,
+                                &levelset.as_ref().unwrap().levels,
                                 &global_state.changed_tiles,
                             );
 
@@ -525,6 +530,7 @@ async fn main() {
                             *level = levels::Level::from_level_raw(
                                 level_raw,
                                 *current_ind,
+                                &levelset.as_ref().unwrap().levels,
                                 &global_state.changed_tiles,
                             );
                         }
@@ -563,6 +569,7 @@ async fn main() {
                                 *level = levels::Level::from_level_raw(
                                     level_raw,
                                     *current_ind,
+                                    &levelset.as_ref().unwrap().levels,
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
@@ -611,6 +618,7 @@ async fn main() {
                                 *level = levels::Level::from_level_raw(
                                     level_raw,
                                     *current_ind,
+                                    &levelset.as_ref().unwrap().levels,
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
@@ -650,6 +658,7 @@ async fn main() {
                                 *level = levels::Level::from_level_raw(
                                     level_raw,
                                     *current_ind,
+                                    &levelset.as_ref().unwrap().levels,
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
@@ -692,6 +701,7 @@ async fn main() {
                                 *level = levels::Level::from_level_raw(
                                     level_raw,
                                     *current_ind,
+                                    &levelset.as_ref().unwrap().levels,
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
@@ -797,8 +807,13 @@ async fn main() {
                 }
 
                 for layer in themes[level.theme].bg.iter() {
-                    let x = layer.off_x + layer.para_factor_x;
-                    let y = layer.off_y + layer.para_factor_y;
+                    let s_p_b_x = (render_off_x + level.theme_offset.0 as f32) / TILE_PIXELS as f32;
+                    let s_p_b_y = (render_off_y + level.theme_offset.1 as f32) / TILE_PIXELS as f32;
+
+                    let x =
+                        layer.off_x + (layer.para_factor_x as f32 * s_p_b_x) as i32 / PIXEL_SIZE;
+                    let y =
+                        layer.off_y + (layer.para_factor_y as f32 * s_p_b_y) as i32 / PIXEL_SIZE;
 
                     let t = texture_cache!(&mut textures, &layer.image);
 
@@ -819,6 +834,7 @@ async fn main() {
                         true,
                         &mut textures,
                         &themes,
+                        level.theme,
                     );
                 }
 

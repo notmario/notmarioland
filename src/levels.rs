@@ -1465,7 +1465,7 @@ pub struct LevelRaw {
     tiles: Vec<Vec<Vec<Tile>>>,
     exits: SideExits,
     door_exits: Vec<usize>,
-    theme: usize,
+    theme: Option<usize>,
 }
 
 impl LevelRaw {
@@ -1556,9 +1556,17 @@ impl LevelRaw {
         skip_actually_drawing: bool,
         textures: &mut HashMap<String, Texture2D>,
         themes: &[Theme],
+        default_theme: usize,
     ) {
         if !skip_actually_drawing {
-            self.draw(off_x, off_y, my_ind, subs, textures, &themes[self.theme])
+            self.draw(
+                off_x,
+                off_y,
+                my_ind,
+                subs,
+                textures,
+                &themes[self.theme.unwrap_or(default_theme)],
+            )
         }
         if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
             let ind = self.exits.left.expect("is some");
@@ -1582,6 +1590,7 @@ impl LevelRaw {
                 false,
                 textures,
                 themes,
+                default_theme,
             );
         };
         if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
@@ -1606,6 +1615,7 @@ impl LevelRaw {
                 false,
                 textures,
                 themes,
+                default_theme,
             );
         };
         if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
@@ -1630,6 +1640,7 @@ impl LevelRaw {
                 false,
                 textures,
                 themes,
+                default_theme,
             );
         };
         if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
@@ -1654,8 +1665,93 @@ impl LevelRaw {
                 false,
                 textures,
                 themes,
+                default_theme,
             );
         };
+    }
+
+    pub fn find_theme(
+        &self,
+        levels: &Vec<LevelRaw>,
+        seen: &mut Vec<usize>,
+        my_ind: usize,
+    ) -> Option<(usize, (i32, i32))> {
+        if self.theme.is_some() {
+            return Some((self.theme.expect("is some"), (0, 0)));
+        }
+        if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
+            let ind = self.exits.left.expect("is some");
+            seen.push(ind);
+
+            let offset = levels[ind].tiles[0][0].len() as i32 * TILE_PIXELS;
+            let perp_offset = (self.side_offsets().left.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .right
+                    .expect("corresponding should have exit anchor"))
+                / PIXEL_SIZE;
+
+            let t = levels[ind].find_theme(levels, seen, ind);
+
+            if let Some((t, (x, y))) = t {
+                return Some((t, (x - offset, y + perp_offset)));
+            }
+        };
+        if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
+            let ind = self.exits.right.expect("is some");
+            seen.push(ind);
+
+            let offset = self.tiles[0][0].len() as i32 * TILE_PIXELS;
+            let perp_offset = (self.side_offsets().right.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .left
+                    .expect("corresponding should have exit anchor"))
+                / PIXEL_SIZE;
+
+            let t = levels[ind].find_theme(levels, seen, ind);
+
+            if let Some((t, (x, y))) = t {
+                return Some((t, (x + offset, y + perp_offset)));
+            }
+        };
+        if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
+            let ind = self.exits.up.expect("is some");
+            seen.push(ind);
+
+            let offset = levels[ind].tiles[0].len() as i32 * TILE_PIXELS;
+            let perp_offset = (self.side_offsets().up.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .down
+                    .expect("corresponding should have exit anchor"))
+                / PIXEL_SIZE;
+
+            let t = levels[ind].find_theme(levels, seen, ind);
+
+            if let Some((t, (x, y))) = t {
+                return Some((t, (x + perp_offset, y - offset)));
+            }
+        };
+        if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
+            let ind = self.exits.down.expect("is some");
+            seen.push(ind);
+
+            let offset = self.tiles[0].len() as i32 * TILE_PIXELS;
+            let perp_offset = (self.side_offsets().down.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .up
+                    .expect("corresponding should have exit anchor"))
+                / PIXEL_SIZE;
+
+            let t = levels[ind].find_theme(levels, seen, ind);
+
+            if let Some((t, (x, y))) = t {
+                return Some((t, (x + perp_offset, y + offset)));
+            }
+        };
+        None
     }
 }
 
@@ -1666,6 +1762,7 @@ pub struct Level {
     pub side_exits: SideExits,
     pub side_offsets: SideOffsets,
     pub theme: usize,
+    pub theme_offset: (i32, i32),
 }
 
 impl Level {
@@ -1761,6 +1858,7 @@ impl Level {
     pub fn from_level_raw(
         l: LevelRaw,
         my_ind: usize,
+        other_levels: &Vec<LevelRaw>,
         subs: &HashMap<(usize, usize, usize, usize), Tile>,
     ) -> Self {
         let mut tiles = vec![];
@@ -1879,13 +1977,21 @@ impl Level {
             tiles.push(l_tiles);
         }
 
+        let theme = match l.theme {
+            Some(t) => (t, (0, 0)),
+            None => l
+                .find_theme(other_levels, &mut vec![my_ind], my_ind)
+                .unwrap_or((0, (0, 0))),
+        };
+
         Level {
             name: l.name,
             tiles,
             objects,
             side_exits: l.exits,
             side_offsets,
-            theme: l.theme,
+            theme: theme.0,
+            theme_offset: theme.1,
         }
     }
 }
@@ -1928,7 +2034,7 @@ fn load_level(path: &str, level_inds: &HashMap<&str, usize>) -> LevelRaw {
             down: None,
         };
         let mut door_exits = vec![];
-        let mut theme = 0;
+        let mut theme = None;
 
         for l in parts.next().expect("should have part").lines() {
             let mut halves = l.split(":");
@@ -1946,7 +2052,7 @@ fn load_level(path: &str, level_inds: &HashMap<&str, usize>) -> LevelRaw {
                 "up" => exits.up = Some(right_half),
                 "down" => exits.down = Some(right_half),
                 "door" => door_exits.push(right_half),
-                "theme" => theme = right_half,
+                "theme" => theme = Some(right_half),
                 _ => (),
             }
         }
