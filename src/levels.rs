@@ -1,5 +1,5 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
-use crate::{texture_cache, Adjacencies, Theme};
+use crate::{texture_cache, Adjacencies, Theme, TransitionAnimationType};
 use macroquad::prelude::*;
 use std::collections::HashMap;
 
@@ -695,6 +695,7 @@ pub trait Object {
         _off_y: i32,
         _texture: &mut HashMap<String, Texture2D>,
         _gs: &GlobalState,
+        _t: &TransitionAnimationType,
     ) {
     }
 
@@ -705,6 +706,26 @@ pub trait Object {
     }
     fn spawn(&self, gs: &GlobalState) -> Option<Box<dyn Object>> {
         None
+    }
+}
+
+// used for death animation
+fn trianglerad(theta: f32) -> f32 {
+    let theta = theta % std::f32::consts::TAU;
+    let pithree = std::f32::consts::FRAC_PI_3;
+    let new_theta = if theta < 2. * pithree {
+        theta - pithree
+    } else if theta < 4. * pithree {
+        theta + 3. * pithree
+    } else {
+        theta + pithree
+    };
+
+    let r = 0.5 * new_theta.cos().recip();
+    if r.is_infinite() {
+        1.
+    } else {
+        r
     }
 }
 
@@ -939,6 +960,7 @@ impl Object for Player {
         off_y: i32,
         textures: &mut HashMap<String, Texture2D>,
         gs: &GlobalState,
+        tt: &TransitionAnimationType,
     ) {
         // draw_rect_i32(
         //     self.x / PIXEL_SIZE + off_x,
@@ -987,42 +1009,104 @@ impl Object for Player {
             draw_offset = (0, 64)
         }
 
-        draw_texture_ex(
-            &t,
-            (self.x / PIXEL_SIZE + off_x) as f32,
-            (self.y / PIXEL_SIZE + off_y) as f32,
-            WHITE,
-            DrawTextureParams {
-                source: Some(Rect {
-                    x: draw_offset.0 as f32,
-                    y: draw_offset.1 as f32,
-                    w: 16.,
-                    h: 16.,
-                }),
-                ..Default::default()
-            },
-        );
+        if let TransitionAnimationType::Door(_) = tt {
+            draw_offset = (0, 96)
+        }
+        if let TransitionAnimationType::Death(frames) = tt {
+            let frames = 80 - frames;
 
-        let rows = [("assets/arrowtiny.png", gs.jumps)]
-            .into_iter()
-            .filter(|k| k.1 != 0);
-        let count: i32 = rows.clone().map(|k| k.1).sum();
-        let angper = std::f32::consts::TAU / count as f32;
-
-        let mut off = 0;
-        for (i, r) in rows.enumerate() {
-            let t = texture_cache!(textures, r.0);
-            for j in 0..r.1 {
-                let a = (off + j) as f32 * angper - gs.timer as f32 * 0.004;
-                let (xoff, yoff) = a.sin_cos();
-                draw_texture(
+            if frames < 30 {
+                let k = 30 - frames;
+                draw_texture_ex(
                     &t,
-                    (self.x / PIXEL_SIZE + off_x + TILE_PIXELS / 4 + (xoff * 16.) as i32) as f32,
-                    (self.y / PIXEL_SIZE + off_y + TILE_PIXELS / 4 + (yoff * 16.) as i32) as f32,
+                    (self.x / PIXEL_SIZE + off_x + rand::gen_range(-k, k) / 15) as f32,
+                    (self.y / PIXEL_SIZE + off_y + rand::gen_range(-k, k) / 15) as f32,
                     WHITE,
-                )
+                    DrawTextureParams {
+                        source: Some(Rect {
+                            x: 16.,
+                            y: 96.,
+                            w: 16.,
+                            h: 16.,
+                        }),
+                        ..Default::default()
+                    },
+                );
+            } else {
+                let center_x = self.x / PIXEL_SIZE + off_x;
+                let center_y = self.y / PIXEL_SIZE + off_y;
+
+                let r = 40. - 40. / (frames - 29) as f32;
+                let theta = 0.2 * ((frames - 30) as f32).sqrt();
+
+                let k = 1. - ((frames as f32 - 45.) / 25.).clamp(0., 1.);
+
+                let c = Color {
+                    r: 1.,
+                    g: 1. - 0.5960784314 * k,
+                    b: 1. - 0.5960784314 * k,
+                    a: 1.,
+                };
+
+                let t = texture_cache!(textures, "assets/deaththingy.png");
+
+                for i in [
+                    0., 0.125, 0.333, 0.5625, 0.666, 0.8, 1., 1.2, 1.333, 1.4375, 1.666, 1.875,
+                ] {
+                    let my_theta = i as f32 * std::f32::consts::PI;
+                    let my_r = r * trianglerad(my_theta);
+                    let (mut x, mut y) = (my_theta - theta).sin_cos();
+                    x *= my_r;
+                    y *= my_r;
+
+                    draw_texture(
+                        &t,
+                        (center_x + x as i32 + 4) as f32,
+                        (center_y + y as i32 + 4) as f32,
+                        c,
+                    );
+                }
             }
-            off += r.1;
+        } else {
+            draw_texture_ex(
+                &t,
+                (self.x / PIXEL_SIZE + off_x) as f32,
+                (self.y / PIXEL_SIZE + off_y) as f32,
+                WHITE,
+                DrawTextureParams {
+                    source: Some(Rect {
+                        x: draw_offset.0 as f32,
+                        y: draw_offset.1 as f32,
+                        w: 16.,
+                        h: 16.,
+                    }),
+                    ..Default::default()
+                },
+            );
+
+            let rows = [("assets/arrowtiny.png", gs.jumps)]
+                .into_iter()
+                .filter(|k| k.1 != 0);
+            let count: i32 = rows.clone().map(|k| k.1).sum();
+            let angper = std::f32::consts::TAU / count as f32;
+
+            let mut off = 0;
+            for (_, r) in rows.enumerate() {
+                let t = texture_cache!(textures, r.0);
+                for j in 0..r.1 {
+                    let a = (off + j) as f32 * angper - gs.timer as f32 * 0.004;
+                    let (xoff, yoff) = a.sin_cos();
+                    draw_texture(
+                        &t,
+                        (self.x / PIXEL_SIZE + off_x + TILE_PIXELS / 4 + (xoff * 16.) as i32)
+                            as f32,
+                        (self.y / PIXEL_SIZE + off_y + TILE_PIXELS / 4 + (yoff * 16.) as i32)
+                            as f32,
+                        WHITE,
+                    )
+                }
+                off += r.1;
+            }
         }
     }
 
@@ -1131,6 +1215,7 @@ impl Object for Saw {
         off_y: i32,
         textures: &mut HashMap<String, Texture2D>,
         _gs: &GlobalState,
+        _t: &TransitionAnimationType,
     ) {
         // draw_rect_i32(
         //     self.x / PIXEL_SIZE + off_x,
@@ -1215,6 +1300,7 @@ impl Object for SawLauncher {
         off_y: i32,
         textures: &mut HashMap<String, Texture2D>,
         _gs: &GlobalState,
+        _t: &TransitionAnimationType,
     ) {
     }
 
@@ -1511,6 +1597,7 @@ impl Level {
         textures: &mut HashMap<String, Texture2D>,
         theme: &Theme,
         gs: &GlobalState,
+        t: &TransitionAnimationType,
     ) {
         let max_y = self.tiles[0].len() - 1;
         let max_x = self.tiles[0][0].len() - 1;
@@ -1534,7 +1621,7 @@ impl Level {
             }
         }
         for o in self.objects.iter() {
-            o.draw(off_x, off_y, textures, gs)
+            o.draw(off_x, off_y, textures, gs, t)
         }
     }
     pub fn update(

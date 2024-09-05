@@ -167,51 +167,64 @@ struct Adjacencies {
 }
 
 fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color) {
-    let k = std::f32::consts::FRAC_PI_3.sin();
+    let k = 0.5;
+    let j = 0.75_f32.sqrt();
 
     draw_rectangle(
-        x - r - SCREEN_WIDTH as f32 * 2.,
+        x - r * j - SCREEN_WIDTH as f32 * 2.,
         y - SCREEN_HEIGHT as f32 * 2.,
         SCREEN_WIDTH as f32 * 2.,
         SCREEN_HEIGHT as f32 * 4.,
         c,
     );
     draw_rectangle(
-        x + r,
+        x + r * j,
         y - SCREEN_HEIGHT as f32 * 2.,
         SCREEN_WIDTH as f32 * 2.,
         SCREEN_HEIGHT as f32 * 4.,
         c,
     );
     draw_rectangle(
-        x - r,
+        x - r * j,
         y - r - SCREEN_HEIGHT as f32 * 2.,
-        r * 2.,
+        r * 2. * j,
         SCREEN_HEIGHT as f32 * 2.,
         c,
     );
 
-    draw_rectangle(x - r, y + r * k, r * 2., SCREEN_HEIGHT as f32 * 2., c);
+    draw_rectangle(x - r * j, y + r * k, r * 2., SCREEN_HEIGHT as f32 * 2., c);
 
     draw_triangle(
-        Vec2 { x: x - r, y: y - r },
+        Vec2 {
+            x: x - r * j,
+            y: y - r,
+        },
         Vec2 { x, y: y - r },
         Vec2 {
-            x: x - r,
+            x: x - r * j,
             y: y + r * k,
         },
         c,
     );
 
     draw_triangle(
-        Vec2 { x: x + r, y: y - r },
+        Vec2 {
+            x: x + r * j,
+            y: y - r,
+        },
         Vec2 { x, y: y - r },
         Vec2 {
-            x: x + r,
+            x: x + r * j,
             y: y + r * k,
         },
         c,
     );
+}
+
+enum TransitionAnimationType {
+    None,
+    Death(i32),
+    Door(i32),
 }
 
 fn window_conf() -> Conf {
@@ -289,6 +302,7 @@ async fn main() {
         "assets/jumparrow.png",
         "assets/jumparrowoutline.png",
         "assets/arrowtiny.png",
+        "assets/deaththingy.png",
     ];
 
     for p in preload_textures {
@@ -317,6 +331,7 @@ async fn main() {
     let mut deaths = 0;
     let mut secret_count = 0;
     let mut transition_ticks: i32 = 0;
+    let mut next_ind: Option<usize> = None;
 
     loop {
         clear_background(WHITE);
@@ -476,14 +491,43 @@ async fn main() {
                         transition_ticks += 1;
                     }
 
-                    if transition_ticks == -1 {
-                        let level_raw =
-                            levelset.as_ref().expect("is some").levels[*current_ind].clone();
-                        *level = levels::Level::from_level_raw(
-                            level_raw,
-                            *current_ind,
-                            &global_state.changed_tiles,
-                        );
+                    if transition_ticks == -1 && remaining_timer * 60. >= 1. {
+                        if let Some(index) = next_ind {
+                            let level_raw =
+                                levelset.as_ref().expect("is some").levels[index].clone();
+
+                            let old_ind = *current_ind;
+                            *current_ind = index;
+                            *level = levels::Level::from_level_raw(
+                                level_raw,
+                                *current_ind,
+                                &global_state.changed_tiles,
+                            );
+
+                            let p_pos = levels::find_door(old_ind, &level.tiles);
+                            println!("{:?}", p_pos);
+                            if let Some((x, y)) = p_pos {
+                                let p_obj = level.player_obj();
+
+                                (p_obj.x, p_obj.y) = (x * TILE_SIZE, y * TILE_SIZE);
+                            }
+
+                            let new_d = level.dimensions();
+
+                            render_off_x = (SCREEN_WIDTH / 2 - new_d.0 * TILE_PIXELS / 2) as f32;
+                            render_off_y = (SCREEN_HEIGHT / 2 - new_d.1 * TILE_PIXELS / 2) as f32;
+
+                            next_ind = None;
+                        } else {
+                            let level_raw =
+                                levelset.as_ref().expect("is some").levels[*current_ind].clone();
+                            *level = levels::Level::from_level_raw(
+                                level_raw,
+                                *current_ind,
+                                &global_state.changed_tiles,
+                            );
+                        }
+
                         global_state.jumps = 0;
                     }
 
@@ -658,7 +702,7 @@ async fn main() {
                                 (p.vx, p.vy) = player_vel
                             } else {
                                 if levelset.is_some() {
-                                    transition_ticks = -20;
+                                    transition_ticks = -80;
 
                                     deaths += 1;
                                 } else {
@@ -678,31 +722,8 @@ async fn main() {
                                 if grounded {
                                     // println!("we should be going to {}", index);
 
-                                    let level_raw =
-                                        levelset.as_ref().expect("is some").levels[index].clone();
-
-                                    let old_ind = *current_ind;
-                                    *current_ind = index;
-                                    *level = levels::Level::from_level_raw(
-                                        level_raw,
-                                        *current_ind,
-                                        &global_state.changed_tiles,
-                                    );
-                                    global_state.jumps = 0;
-
-                                    let p_pos = levels::find_door(old_ind, &level.tiles);
-                                    if let Some((x, y)) = p_pos {
-                                        let p_obj = level.player_obj();
-
-                                        (p_obj.x, p_obj.y) = (x * TILE_SIZE, y * TILE_SIZE);
-                                    }
-
-                                    let new_d = level.dimensions();
-
-                                    render_off_x =
-                                        (SCREEN_WIDTH / 2 - new_d.0 * TILE_PIXELS / 2) as f32;
-                                    render_off_y =
-                                        (SCREEN_HEIGHT / 2 - new_d.1 * TILE_PIXELS / 2) as f32;
+                                    transition_ticks = -20;
+                                    next_ind = Some(index)
                                 }
                             }
                         } else {
@@ -713,7 +734,7 @@ async fn main() {
                                 || levels::check_object_death(aabb, &level.objects)
                             {
                                 if levelset.is_some() {
-                                    transition_ticks = -20;
+                                    transition_ticks = -80;
 
                                     deaths += 1;
                                 } else {
@@ -825,12 +846,23 @@ async fn main() {
                     color_u8!(0, 0, 0, 51),
                 );
 
+                let transition_type = if transition_ticks < 0 {
+                    if next_ind.is_some() {
+                        TransitionAnimationType::Door(-transition_ticks)
+                    } else {
+                        TransitionAnimationType::Death(-transition_ticks)
+                    }
+                } else {
+                    TransitionAnimationType::None
+                };
+
                 level.draw(
                     render_off_x as i32,
                     render_off_y as i32,
                     &mut textures,
                     &themes[level.theme],
                     &global_state,
+                    &transition_type,
                 );
 
                 let player_pos = level.focus_position();
