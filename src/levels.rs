@@ -1,7 +1,7 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
 use crate::{texture_cache, Adjacencies, Theme, TransitionAnimationType};
 use macroquad::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 fn draw_rect_i32(x: i32, y: i32, w: i32, h: i32, c: Color) {
     draw_rectangle(x as f32, y as f32, w as f32, h as f32, c)
@@ -13,6 +13,7 @@ pub struct GlobalState {
     pub timer: i32,
     pub secrets: i32,
     pub jumps: i32,
+    pub collected_jump_arrows: VecDeque<(usize, usize, usize)>,
 }
 
 impl GlobalState {
@@ -23,6 +24,7 @@ impl GlobalState {
             timer: 0,
             secrets: 0,
             jumps: 0,
+            collected_jump_arrows: VecDeque::new(),
         }
     }
 }
@@ -552,6 +554,7 @@ pub fn collect_keys(
                     Tile::JumpArrow => {
                         gs.jumps += 1;
                         l[ty][tx] = Tile::JumpArrowOutline;
+                        gs.collected_jump_arrows.push_back((li, ty, tx));
                     }
 
                     _ => (),
@@ -684,7 +687,7 @@ pub trait Object {
     fn update(
         &mut self,
         _keys_pressed: &mut HashMap<KeyCode, bool>,
-        _tiles: &Vec<Vec<Vec<Tile>>>,
+        _tiles: &mut Vec<Vec<Vec<Tile>>>,
         _global_state: &mut GlobalState,
     ) {
     }
@@ -763,7 +766,7 @@ impl Object for Player {
     fn update(
         &mut self,
         keys_pressed: &mut HashMap<KeyCode, bool>,
-        tiles: &Vec<Vec<Vec<Tile>>>,
+        tiles: &mut Vec<Vec<Vec<Tile>>>,
         global_state: &mut GlobalState,
     ) {
         // accelerate left and right
@@ -900,6 +903,7 @@ impl Object for Player {
             }
             if !self.grounded {
                 global_state.jumps -= 1;
+                global_state.collected_jump_arrows.pop_front();
             }
             self.grounded = false;
         }
@@ -1148,7 +1152,7 @@ impl Object for Saw {
     fn update(
         &mut self,
         _keys_pressed: &mut HashMap<KeyCode, bool>,
-        tiles: &Vec<Vec<Vec<Tile>>>,
+        tiles: &mut Vec<Vec<Vec<Tile>>>,
         global_state: &mut GlobalState,
     ) {
         // horizontal movement
@@ -1289,7 +1293,7 @@ impl Object for SawLauncher {
     fn update(
         &mut self,
         _keys_pressed: &mut HashMap<KeyCode, bool>,
-        _tiles: &Vec<Vec<Vec<Tile>>>,
+        _tiles: &mut Vec<Vec<Vec<Tile>>>,
         _global_state: &mut GlobalState,
     ) {
     }
@@ -1325,6 +1329,87 @@ impl Object for SawLauncher {
             anim_timer: 0,
             should_remove: false,
         }))
+    }
+}
+pub struct ArrowRespawn {
+    pub x: i32,
+    pub y: i32,
+
+    pub frames: i32,
+    pub layer: usize,
+    pub xi: usize,
+    pub yi: usize,
+}
+
+impl Object for ArrowRespawn {
+    fn get_type(&self) -> &'static str {
+        "ARROWRESPAWN"
+    }
+
+    fn get_aabb(&self) -> AABB {
+        AABB {
+            x: self.x,
+            y: self.y,
+            w: TILE_SIZE,
+            h: TILE_SIZE,
+        }
+    }
+
+    fn update(
+        &mut self,
+        _keys_pressed: &mut HashMap<KeyCode, bool>,
+        tiles: &mut Vec<Vec<Vec<Tile>>>,
+        gs: &mut GlobalState,
+    ) {
+        if tiles[self.layer][self.yi][self.xi] != Tile::JumpArrow
+            && !gs
+                .collected_jump_arrows
+                .contains(&(self.layer, self.yi, self.xi))
+        {
+            self.frames += 1;
+            if self.frames >= 180 {
+                tiles[self.layer][self.yi][self.xi] = Tile::JumpArrow
+            }
+        } else {
+            self.frames = 0;
+        }
+    }
+
+    fn draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        textures: &mut HashMap<String, Texture2D>,
+        _gs: &GlobalState,
+        _t: &TransitionAnimationType,
+    ) {
+        let t = texture_cache!(textures, "assets/jumparrowfill.png");
+
+        let size = self.frames / 15;
+
+        draw_texture_ex(
+            &t,
+            (self.x / PIXEL_SIZE + off_x) as f32,
+            (self.y / PIXEL_SIZE + off_y + 14 - size) as f32,
+            WHITE,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: 0.,
+                    y: 14. - size as f32,
+                    w: 16.,
+                    h: size as f32,
+                }),
+                ..Default::default()
+            },
+        )
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
@@ -1631,7 +1716,7 @@ impl Level {
     ) {
         global_state.timer += 1;
         for o in self.objects.iter_mut() {
-            o.update(keys_pressed, &self.tiles, global_state)
+            o.update(keys_pressed, &mut self.tiles, global_state)
         }
         self.objects.retain(|o| !o.should_clear());
         let mut extra_objs = self
@@ -1742,6 +1827,17 @@ impl Level {
                             }));
 
                             row_tiles.push(*newt)
+                        }
+                        Tile::JumpArrow => {
+                            row_tiles.push(Tile::JumpArrow);
+                            objects.push(Box::new(ArrowRespawn {
+                                x: x as i32 * TILE_SIZE,
+                                y: y as i32 * TILE_SIZE,
+                                frames: 0,
+                                layer: la,
+                                xi: x,
+                                yi: y,
+                            }));
                         }
 
                         t => row_tiles.push(*t),

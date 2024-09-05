@@ -301,6 +301,7 @@ async fn main() {
         "assets/spike.png",
         "assets/jumparrow.png",
         "assets/jumparrowoutline.png",
+        "assets/jumparrowfill.png",
         "assets/arrowtiny.png",
         "assets/deaththingy.png",
     ];
@@ -529,6 +530,7 @@ async fn main() {
                         }
 
                         global_state.jumps = 0;
+                        global_state.collected_jump_arrows = std::collections::VecDeque::new();
                     }
 
                     if remaining_timer * 60. >= 1. && transition_ticks >= 0 {
@@ -564,6 +566,8 @@ async fn main() {
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
+                                global_state.collected_jump_arrows =
+                                    std::collections::VecDeque::new();
                                 let new_off_y = level
                                     .side_offsets
                                     .right
@@ -610,6 +614,8 @@ async fn main() {
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
+                                global_state.collected_jump_arrows =
+                                    std::collections::VecDeque::new();
                                 let new_off_y =
                                     level.side_offsets.left.expect("should have an exit anchor");
 
@@ -647,6 +653,8 @@ async fn main() {
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
+                                global_state.collected_jump_arrows =
+                                    std::collections::VecDeque::new();
                                 let new_off_x =
                                     level.side_offsets.down.expect("should have an exit anchor");
                                 let new_off_y = level.dimensions().1 * TILE_SIZE;
@@ -687,6 +695,8 @@ async fn main() {
                                     &global_state.changed_tiles,
                                 );
                                 global_state.jumps = 0;
+                                global_state.collected_jump_arrows =
+                                    std::collections::VecDeque::new();
                                 let new_off_x =
                                     level.side_offsets.up.expect("should have an exit anchor");
 
