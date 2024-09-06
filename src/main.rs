@@ -805,6 +805,7 @@ async fn main() {
 
                             if levels::check_tilemap_win(aabb, &level.tiles) {
                                 *won = true;
+                                paused_selection = 0;
                             }
                         }
 
