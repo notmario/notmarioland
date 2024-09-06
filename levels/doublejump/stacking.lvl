@@ -1,0 +1,39 @@
+double double
+===
+#: wall
+S: wall4
+p: player
+.: empty
+e: exit_anchor
+X: spikes
+<: onewayleft
+^: onewayup
+@: jumparrow
+c: cyankey
+d: door
+===
+door: hub
+===
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSSSSSSS..............................##
+SSSSSSSS..............................##
+SSSSSSSS..............................##
+SSSSSSSS.@............................##
+SSSSSSSS...........SS.................##
+SSSSSSSS^^^........SS.................##
+SSSSSSSS.........@.SSXXXXXXXXXXXXX....##
+SSSSSSSS...........SSXXXXXXXXXXXXX....##
+SSSSSSSS......^^^SSSS..XX.............##
+SSSSSSSS.........SSSS..XX.............##
+SSSSSSSS.........SS...................##
+SSSSSSSS.........SS...................##
+SSSSSSSS.........SS...........XX......##
+SSS..............SS...........XX......##
+SSS..............SS.....XXX...XXXXXX..##
+SSS......@.@.....<......XXX...XXXXXX..##
+SSS..............<.......XXXXXXX..XXXXXX
+SSS..d.p.........<...c...XXXXXXX..XXXXXX
+SSSSSSSSSSSSS....<............XX......XX
+SSSSSSSSSSSSS....SSSSSSS......XX......XX
+SSSSSSSSSSSSS....SSSSSSS......XXXXXX..XX

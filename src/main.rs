@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use core::f32;
 use std::collections::HashMap;
 
 use macroquad::prelude::*;
@@ -305,25 +306,46 @@ async fn main() {
         "assets/jumparrowfill.png",
         "assets/arrowtiny.png",
         "assets/deaththingy.png",
+        "assets/pausebottom.png",
+        "assets/pauseleftbase.png",
+        "assets/pauserightbase.png",
+        "assets/pausetopbase.png",
+        "assets/pauseresume.png",
+        "assets/pauseresume-dull.png",
+        "assets/pausereset.png",
+        "assets/pausereset-dull.png",
+        "assets/pauseexit.png",
+        "assets/pauseexit-dull.png",
     ];
 
     for p in preload_textures {
         texture!(&mut textures, p);
     }
 
-    let cam = Camera2D::from_display_rect(Rect::new(
+    let render_target = render_target(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
+    render_target.texture.set_filter(FilterMode::Nearest);
+    let mut cam = Camera2D::from_display_rect(Rect::new(
         0.,
         SCREEN_HEIGHT as f32,
         SCREEN_WIDTH as f32,
         -SCREEN_HEIGHT as f32,
     ));
 
-    set_camera(&cam);
+    cam.render_target = Some(render_target.clone());
+    let cam_true = Camera2D::from_display_rect(Rect::new(
+        0.,
+        SCREEN_HEIGHT as f32,
+        SCREEN_WIDTH as f32,
+        -SCREEN_HEIGHT as f32,
+    ));
+
     let mut render_off_x = 0.;
     let mut render_off_y = 0.;
 
     let mut remaining_timer = 0.;
     let mut paused = false;
+    let mut paused_frames = 0;
+    let mut paused_selection = 0;
 
     let mut keys_pressed: HashMap<KeyCode, bool> = HashMap::new();
 
@@ -334,13 +356,18 @@ async fn main() {
     let mut secret_count = 0;
     let mut transition_ticks: i32 = 0;
     let mut next_ind: Option<usize> = None;
+    let mut levelset_ind = 0;
 
     loop {
         clear_background(WHITE);
 
+        set_default_camera();
+
         match &mut state {
             State::Menu(menu_state) => {
                 clear_background(BLACK);
+
+                set_camera(&cam_true);
                 match menu_state {
                     MenuState::Main(ind) => {
                         draw_text("main menu (temporary)", 4., 12., 16., WHITE);
@@ -397,6 +424,7 @@ async fn main() {
                             } else {
                                 let levelset =
                                     levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
+                                levelset_ind = *ind;
                                 let current_ind = 0; // we assume the first level is index 0
 
                                 let level_raw = levelset.levels[current_ind].clone();
@@ -415,6 +443,7 @@ async fn main() {
                                 deaths = 0;
                                 secret_count = levelset.secret_count;
                                 transition_ticks = 0;
+                                paused_frames = 0;
 
                                 if themes.len() == 0 {
                                     themes.push(Theme {
@@ -481,8 +510,10 @@ async fn main() {
                 global_state,
                 won,
             } => {
+                set_camera(&cam);
                 if is_key_pressed(KeyCode::Escape) {
-                    paused = !paused
+                    paused = !paused;
+                    paused_selection = 0;
                 }
                 if !paused && !*won {
                     let delta = get_frame_time();
@@ -493,6 +524,7 @@ async fn main() {
                             *is_pressed = true
                         }
                     }
+                    paused_frames = (paused_frames - 3).clamp(0, 80);
                     if remaining_timer * 60. >= 1. {
                         transition_ticks += 1;
                     }
@@ -812,7 +844,22 @@ async fn main() {
                     if remaining_timer * 60. >= 1. {
                         remaining_timer -= 1. / 60.;
                     }
+                } else {
+                    let delta = get_frame_time();
+                    remaining_timer += delta;
+                    if remaining_timer * 60. >= 1. {
+                        paused_frames += 1;
+                        remaining_timer -= 1. / 60.;
+                    }
+                    if is_key_pressed(KeyCode::Down) && paused_selection < 2 {
+                        paused_selection += 1;
+                    }
+                    if is_key_pressed(KeyCode::Up) && paused_selection > 0 {
+                        paused_selection -= 1;
+                    }
                 }
+
+                clear_background(WHITE);
 
                 for layer in themes[level.theme].bg.iter() {
                     let s_p_b_x = (render_off_x + level.theme_offset.0 as f32) / TILE_PIXELS as f32;
@@ -921,35 +968,35 @@ async fn main() {
 
                 draw_text(&level.name, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
 
-                let vel = level.player_vel();
-                let g = level.player_obj().air_frames;
-                draw_text(
-                    &format!("h {:0>3}", vel.0.abs() / 16,),
-                    2.,
-                    SCREEN_HEIGHT as f32 - 4.,
-                    16.,
-                    if vel.0.abs() >= 4096 { RED } else { WHITE },
-                );
-                draw_text(
-                    &format!("v {:0>3}", vel.1.abs() / 16,),
-                    44.,
-                    SCREEN_HEIGHT as f32 - 4.,
-                    16.,
-                    if vel.1.abs() >= 4096 { RED } else { WHITE },
-                );
+                // let vel = level.player_vel();
+                // let g = level.player_obj().air_frames;
+                // draw_text(
+                //     &format!("h {:0>3}", vel.0.abs() / 16,),
+                //     2.,
+                //     SCREEN_HEIGHT as f32 - 4.,
+                //     16.,
+                //     if vel.0.abs() >= 4096 { RED } else { WHITE },
+                // );
+                // draw_text(
+                //     &format!("v {:0>3}", vel.1.abs() / 16,),
+                //     44.,
+                //     SCREEN_HEIGHT as f32 - 4.,
+                //     16.,
+                //     if vel.1.abs() >= 4096 { RED } else { WHITE },
+                // );
 
-                let t = format!(
-                    "{}/{} | {:0>2}:{:0>2} | {} death{}",
-                    global_state.secrets,
-                    secret_count,
-                    global_state.timer / 3600,
-                    (global_state.timer / 60) % 60,
-                    deaths,
-                    if deaths == 1 { "" } else { "s" }
-                );
-                let x = SCREEN_WIDTH - t.len() as i32 * 7 - 2;
+                // let t = format!(
+                //     "{}/{} | {:0>2}:{:0>2} | {} death{}",
+                //     global_state.secrets,
+                //     secret_count,
+                //     global_state.timer / 3600,
+                //     (global_state.timer / 60) % 60,
+                //     deaths,
+                //     if deaths == 1 { "" } else { "s" }
+                // );
+                // let x = SCREEN_WIDTH - t.len() as i32 * 7 - 2;
 
-                draw_text(&t, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
+                // draw_text(&t, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
 
                 let mut key_pos = 2.;
                 for (count, colour) in global_state
@@ -967,22 +1014,170 @@ async fn main() {
                     }
                 }
 
-                if paused {
-                    draw_rectangle(
+                set_default_camera();
+
+                if paused_frames > 0 {
+                    let prog = paused_frames as f32 / 80.;
+                    let prog = prog.clamp(0., 1.);
+                    let prog = 1. - (1. - prog).powi(3);
+                    let prog = prog.clamp(0., 1.);
+                    let threed_cam = Camera3D {
+                        position: Vec3 {
+                            x: SCREEN_WIDTH as f32 * (1. + prog),
+                            y: SCREEN_HEIGHT as f32 * (1. + prog / 2.),
+                            z: -637.394 * (1. + prog),
+                        },
+                        target: Vec3 {
+                            x: SCREEN_WIDTH as f32,
+                            y: SCREEN_HEIGHT as f32,
+                            z: 637.394 * prog,
+                        },
+                        up: Vec3 {
+                            x: 0.,
+                            y: -1.,
+                            z: 0.,
+                        },
+                        fovy: std::f32::consts::FRAC_PI_3 * (5. - prog) / 5.,
+                        aspect: None,
+                        projection: Projection::Perspective,
+                        render_target: None,
+                        viewport: None,
+                    };
+                    set_camera(&threed_cam);
+                    draw_cube(
+                        Vec3 {
+                            x: SCREEN_WIDTH as f32,
+                            y: SCREEN_HEIGHT as f32,
+                            z: 300.,
+                        },
+                        Vec3 {
+                            x: SCREEN_WIDTH as f32 * 2. + 192.,
+                            y: SCREEN_HEIGHT as f32 * 2. + 192.,
+                            z: 500.,
+                        },
+                        None,
+                        color_u8!(148, 78, 238, 255),
+                    );
+                    draw_texture_ex(
+                        &render_target.texture,
                         0.,
                         0.,
-                        SCREEN_WIDTH as f32,
-                        SCREEN_HEIGHT as f32,
-                        color_u8!(0, 0, 0, 192),
+                        WHITE,
+                        DrawTextureParams {
+                            dest_size: Some(Vec2 {
+                                x: screen_width(),
+                                y: screen_height(),
+                            }),
+                            ..Default::default()
+                        },
                     );
 
-                    draw_text("paused !!", 4., 12., 16., WHITE);
-                    draw_text("q to quit", 4., 28., 16., WHITE);
+                    if !*won {
+                        set_camera(&cam_true);
+                        draw_rectangle(
+                            0.,
+                            0.,
+                            SCREEN_WIDTH as f32 * 2.,
+                            SCREEN_HEIGHT as f32 * 2.,
+                            color_u8!(0, 0, 0, (224. * prog) as u8),
+                        );
 
-                    if is_key_pressed(KeyCode::Q) {
-                        state = State::Menu(MenuState::Main(0))
+                        let t = texture_cache!(textures, "assets/pausetopbase.png");
+                        draw_texture(&t, 0., (-96. * (1. - prog)) as i32 as f32, WHITE);
+
+                        draw_text(
+                            "I need to implement this. For now it will remain static.",
+                            88.,
+                            48. + (-96. * (1. - prog)) as i32 as f32,
+                            32.,
+                            WHITE,
+                        );
+                        let t = texture_cache!(textures, "assets/pauseleftbase.png");
+                        draw_texture(&t, (-192. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                        let t = format!(
+                            "{:0>2}:{:0>2}",
+                            global_state.timer / 3600,
+                            (global_state.timer / 60) % 60,
+                        );
+                        draw_text(
+                            &t,
+                            71. + (-192. * (1. - prog)) as i32 as f32,
+                            176.,
+                            32.,
+                            BLACK,
+                        );
+
+                        let t = format!("{}/{}", global_state.secrets, secret_count,);
+                        draw_text(
+                            &t,
+                            69. + (-192. * (1. - prog)) as i32 as f32,
+                            207.,
+                            32.,
+                            color_u8!(79, 6, 79, 255),
+                        );
+
+                        let t = format!("{}", deaths);
+                        draw_text(
+                            &t,
+                            67. + (-192. * (1. - prog)) as i32 as f32,
+                            247.,
+                            32.,
+                            color_u8!(79, 6, 6, 255),
+                        );
+
+                        let t = texture_cache!(textures, "assets/pausebottom.png");
+                        draw_texture(&t, 0., (150. * (1. - prog)) as i32 as f32, WHITE);
+                        let t = texture_cache!(textures, "assets/pauserightbase.png");
+                        draw_texture(&t, (256. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                        let t = texture_cache!(
+                            textures,
+                            if paused_selection == 0 {
+                                "assets/pauseresume.png"
+                            } else {
+                                "assets/pauseresume-dull.png"
+                            }
+                        );
+                        draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                        let t = texture_cache!(
+                            textures,
+                            if paused_selection == 1 {
+                                "assets/pausereset.png"
+                            } else {
+                                "assets/pausereset-dull.png"
+                            }
+                        );
+                        draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                        let t = texture_cache!(
+                            textures,
+                            if paused_selection == 2 {
+                                "assets/pauseexit.png"
+                            } else {
+                                "assets/pauseexit-dull.png"
+                            }
+                        );
+                        draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
                     }
-                } else if *won {
+                } else {
+                    draw_texture_ex(
+                        &render_target.texture,
+                        0.,
+                        0.,
+                        WHITE,
+                        DrawTextureParams {
+                            dest_size: Some(Vec2 {
+                                x: screen_width(),
+                                y: screen_height(),
+                            }),
+                            ..Default::default()
+                        },
+                    );
+                }
+                set_default_camera();
+                if *won {
                     draw_rectangle(
                         0.,
                         0.,
@@ -1015,6 +1210,58 @@ async fn main() {
 
                     if is_key_pressed(KeyCode::Q) {
                         state = State::Menu(MenuState::Main(0))
+                    }
+                }
+                if paused && is_key_pressed(KeyCode::Z) {
+                    if is_key_pressed(KeyCode::Z) {
+                        match paused_selection {
+                            0 => paused = false,
+                            1 => {
+                                let levelset = levels::load_levelset(&format!(
+                                    "levels/{}",
+                                    levelsets[levelset_ind]
+                                ));
+                                let current_ind = 0; // we assume the first level is index 0
+
+                                let level_raw = levelset.levels[current_ind].clone();
+                                let level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    0,
+                                    &levelset.levels,
+                                    &HashMap::new(),
+                                );
+
+                                paused = false;
+                                render_off_x = 0.;
+                                render_off_y = 0.;
+
+                                themes = levelset.themes.clone();
+                                deaths = 0;
+                                secret_count = levelset.secret_count;
+                                transition_ticks = 0;
+                                paused_frames = 0;
+
+                                if themes.len() == 0 {
+                                    themes.push(Theme {
+                                        ..Default::default()
+                                    })
+                                }
+
+                                for t in themes.iter() {
+                                    t.load_textures(&mut textures).await;
+                                }
+
+                                state = State::Game {
+                                    levelset: Some(levelset),
+                                    current_ind,
+                                    level,
+                                    global_state: levels::GlobalState::new(),
+                                    won: false,
+                                }
+                            }
+                            2 => state = State::Menu(MenuState::Main(0)),
+                            _ => unreachable!(),
+                        }
                     }
                 }
             } // _ => (),

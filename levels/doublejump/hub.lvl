@@ -1,0 +1,39 @@
+mount the monolith
+===
+#: wall
+S: wall4
+p: player
+.: empty
+e: exit_anchor
+X: spikes
+^: onewayup
+@: jumparrow
+C: cyanlock
+d: door
+===
+left: another
+door: stacking
+===
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSS...............................SSSS
+SSSSS...............................SSSS
+SSSSS...............................SSSS
+SSSSS...............................SSSS
+SSSSS...............................SSSS
+e...............................d...SSSS
+......................^^^^^#############
+...........................#############
+..............................C.....SSSS
+..p...........................C.....SSSS
+SSSSS#######..................C..@..SSSS
+SSSSS#######..................C.....SSSS
+SSSSS#######SSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSS#######SSSSSSSSSSSSSSSSSSSSSSSSSSSS
