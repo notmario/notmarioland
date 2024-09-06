@@ -12,24 +12,36 @@ C: cyanlock
 d: door
 ===
 left: another
+door: descent
 door: stacking
 ===
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS^^^^^^^...........SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
+SSSSSSSSSSSSSSSSSS..................SSSS
 SSSSS...............................SSSS
 SSSSS...............................SSSS
-SSSSS...............................SSSS
-SSSSS...............................SSSS
-SSSSS...............................SSSS
-e...............................d...SSSS
-......................^^^^^#############
+SSSSS......................SSSSSSSSSSSSS
+SSSSS..d...................SSSSSSSSSSSSS
+SSSSSSSSSSSSSSS^^^^^^......SSSSSSSSSSSSS
+SSSSSSSSSSSSSSS.....................####
+SSSSS...C...........................####
+SSSSS...C...........................####
+SSSSS.@.C...........................####
+SSSSS...C...........................####
+e..SSSSSSSSSS...................d...####
+...SSSSSSSSSS.........^^^^^#############
 ...........................#############
 ..............................C.....SSSS
 ..p...........................C.....SSSS
