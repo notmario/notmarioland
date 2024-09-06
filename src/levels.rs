@@ -70,6 +70,8 @@ pub enum Tile {
 
     DoorGeneric,
     Door(usize),
+    SecretDoorGeneric,
+    SecretDoor(usize),
 
     ExitAnchor,
 
@@ -197,6 +199,7 @@ impl Tile {
             "backwall4" => Self::BackWall4,
 
             "door" => Self::DoorGeneric,
+            "secretdoor" => Self::SecretDoorGeneric,
             "player" => Self::Player,
             "exit_anchor" => Self::ExitAnchor,
 
@@ -243,6 +246,7 @@ impl Tile {
     fn sprite(&self) -> Option<&'static str> {
         match self {
             Self::Door(_) | Self::DoorGeneric => Some("assets/door.png"),
+            Self::SecretDoor(_) | Self::SecretDoorGeneric => Some("assets/secretdoor.png"),
             Self::Spikes => Some("assets/spike.png"),
 
             Self::RedKey => Some("assets/redkey.png"),
@@ -656,6 +660,9 @@ pub fn check_door(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> Option<Tile> {
                 if let Tile::Door(_) = l[ty][tx] {
                     return Some(l[ty][tx]);
                 }
+                if let Tile::SecretDoor(_) = l[ty][tx] {
+                    return Some(l[ty][tx]);
+                }
             }
         }
     }
@@ -668,6 +675,11 @@ pub fn find_door(index: usize, map: &Vec<Vec<Vec<Tile>>>) -> Option<(i32, i32)> 
         for (y, row) in layer.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
                 if let Tile::Door(i) = tile {
+                    if *i == index {
+                        return Some((x as i32, y as i32));
+                    }
+                }
+                if let Tile::SecretDoor(i) = tile {
                     if *i == index {
                         return Some((x as i32, y as i32));
                     }
@@ -1911,6 +1923,12 @@ impl Level {
                                 .next()
                                 .expect("should have a corresponding door entrance");
                             row_tiles.push(Tile::Door(*ind));
+                        }
+                        Tile::SecretDoorGeneric => {
+                            let ind = door_exits
+                                .next()
+                                .expect("should have a corresponding door entrance");
+                            row_tiles.push(Tile::SecretDoor(*ind));
                         }
                         Tile::SawLauncherLeft
                         | Tile::SawLauncherRight

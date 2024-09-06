@@ -7,7 +7,7 @@ e: exit_anchor
 X: spikes
 ^: onewayup
 <: onewayleft
-d: door
+d: secretdoor
 ===
 left: spikes3
 door: secret1

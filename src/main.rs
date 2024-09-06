@@ -298,6 +298,7 @@ async fn main() {
         "assets/secret.png",
         "assets/goal.png",
         "assets/door.png",
+        "assets/secretdoor.png",
         "assets/spike.png",
         "assets/jumparrow.png",
         "assets/jumparrowoutline.png",
@@ -739,6 +740,13 @@ async fn main() {
                             let doors = levels::check_door(aabb, &level.tiles);
 
                             if let Some(levels::Tile::Door(index)) = doors {
+                                if grounded {
+                                    // println!("we should be going to {}", index);
+
+                                    transition_ticks = -20;
+                                    next_ind = Some(index)
+                                }
+                            } else if let Some(levels::Tile::SecretDoor(index)) = doors {
                                 if grounded {
                                     // println!("we should be going to {}", index);
 
