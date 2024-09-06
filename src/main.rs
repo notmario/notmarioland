@@ -1034,21 +1034,21 @@ async fn main() {
                     let prog = prog.clamp(0., 1.);
                     let threed_cam = Camera3D {
                         position: Vec3 {
-                            x: SCREEN_WIDTH as f32 * (1. + prog),
-                            y: SCREEN_HEIGHT as f32 * (1. + prog / 2.),
-                            z: -637.394 * (1. + prog),
+                            x: SCREEN_WIDTH as f32 * (1. + prog * 1.),
+                            y: SCREEN_HEIGHT as f32 * (1. - prog * 1.),
+                            z: -637.394 * (1. + prog * 2.),
                         },
                         target: Vec3 {
-                            x: SCREEN_WIDTH as f32,
-                            y: SCREEN_HEIGHT as f32,
-                            z: 637.394 * prog,
+                            x: SCREEN_WIDTH as f32 * (1. + prog * 0.25),
+                            y: SCREEN_HEIGHT as f32 * (1. + prog * 0.1),
+                            z: 0.,
                         },
                         up: Vec3 {
                             x: 0.,
                             y: -1.,
-                            z: 0.,
+                            z: prog / 5.,
                         },
-                        fovy: std::f32::consts::FRAC_PI_3 * (5. - prog) / 5.,
+                        fovy: std::f32::consts::FRAC_PI_3 * (3. - prog) / 3.,
                         aspect: None,
                         projection: Projection::Perspective,
                         render_target: None,
