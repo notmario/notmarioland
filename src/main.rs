@@ -316,6 +316,7 @@ async fn main() {
         "assets/pausereset-dull.png",
         "assets/pauseexit.png",
         "assets/pauseexit-dull.png",
+        "assets/winrightbase.png",
     ];
 
     for p in preload_textures {
@@ -851,11 +852,20 @@ async fn main() {
                         paused_frames += 1;
                         remaining_timer -= 1. / 60.;
                     }
-                    if is_key_pressed(KeyCode::Down) && paused_selection < 2 {
-                        paused_selection += 1;
-                    }
-                    if is_key_pressed(KeyCode::Up) && paused_selection > 0 {
-                        paused_selection -= 1;
+                    if !*won {
+                        if is_key_pressed(KeyCode::Down) && paused_selection < 2 {
+                            paused_selection += 1;
+                        }
+                        if is_key_pressed(KeyCode::Up) && paused_selection > 0 {
+                            paused_selection -= 1;
+                        }
+                    } else {
+                        if is_key_pressed(KeyCode::Down) && paused_selection < 1 {
+                            paused_selection += 1;
+                        }
+                        if is_key_pressed(KeyCode::Up) && paused_selection > 0 {
+                            paused_selection -= 1;
+                        }
                     }
                 }
 
@@ -1178,38 +1188,124 @@ async fn main() {
                 }
                 set_default_camera();
                 if *won {
+                    let prog = paused_frames as f32 / 80.;
+                    let prog = prog.clamp(0., 1.);
+                    let prog = 1. - (1. - prog).powi(3);
+                    let prog = prog.clamp(0., 1.);
+                    set_camera(&cam_true);
                     draw_rectangle(
                         0.,
                         0.,
-                        SCREEN_WIDTH as f32,
-                        SCREEN_HEIGHT as f32,
-                        color_u8!(0, 0, 0, 192),
+                        SCREEN_WIDTH as f32 * 2.,
+                        SCREEN_HEIGHT as f32 * 2.,
+                        color_u8!(0, 0, 0, (224. * prog) as u8),
                     );
 
-                    draw_text("you win!!", 4., 12., 16., WHITE);
-                    draw_text(
-                        &format!(
-                            "your time: {:0>2}:{:0>2}",
-                            global_state.timer / 3600,
-                            (global_state.timer / 60) % 60
-                        ),
-                        4.,
-                        28.,
-                        16.,
-                        WHITE,
+                    let t = texture_cache!(textures, "assets/pauseleftbase.png");
+                    draw_texture(&t, (-192. * (1. - prog)) as i32 as f32, 0., WHITE);
+                    let t = format!(
+                        "{:0>2}:{:0>2}",
+                        global_state.timer / 3600,
+                        (global_state.timer / 60) % 60,
                     );
                     draw_text(
-                        &format!("secrets: {}/{}", global_state.secrets, secret_count),
-                        4.,
-                        44.,
-                        16.,
-                        WHITE,
+                        &t,
+                        71. + (-192. * (1. - prog)) as i32 as f32,
+                        176.,
+                        32.,
+                        BLACK,
                     );
-                    draw_text(&format!("deaths: {}", deaths), 4., 60., 16., WHITE);
-                    draw_text("q to quit", 4., 76., 16., WHITE);
 
-                    if is_key_pressed(KeyCode::Q) {
-                        state = State::Menu(MenuState::Main(0))
+                    let t = format!("{}/{}", global_state.secrets, secret_count,);
+                    draw_text(
+                        &t,
+                        69. + (-192. * (1. - prog)) as i32 as f32,
+                        207.,
+                        32.,
+                        color_u8!(79, 6, 79, 255),
+                    );
+
+                    let t = format!("{}", deaths);
+                    draw_text(
+                        &t,
+                        67. + (-192. * (1. - prog)) as i32 as f32,
+                        247.,
+                        32.,
+                        color_u8!(79, 6, 6, 255),
+                    );
+
+                    let t = texture_cache!(textures, "assets/pausebottom.png");
+                    draw_texture(&t, 0., (150. * (1. - prog)) as i32 as f32, WHITE);
+                    let t = texture_cache!(textures, "assets/winrightbase.png");
+                    draw_texture(&t, (256. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                    let t = texture_cache!(
+                        textures,
+                        if paused_selection == 0 {
+                            "assets/pausereset.png"
+                        } else {
+                            "assets/pausereset-dull.png"
+                        }
+                    );
+                    draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
+
+                    let t = texture_cache!(
+                        textures,
+                        if paused_selection == 1 {
+                            "assets/pauseexit.png"
+                        } else {
+                            "assets/pauseexit-dull.png"
+                        }
+                    );
+                    draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
+                    if is_key_pressed(KeyCode::Z) {
+                        match paused_selection {
+                            0 => {
+                                let levelset = levels::load_levelset(&format!(
+                                    "levels/{}",
+                                    levelsets[levelset_ind]
+                                ));
+                                let current_ind = 0; // we assume the first level is index 0
+
+                                let level_raw = levelset.levels[current_ind].clone();
+                                let level = levels::Level::from_level_raw(
+                                    level_raw,
+                                    0,
+                                    &levelset.levels,
+                                    &HashMap::new(),
+                                );
+
+                                paused = false;
+                                render_off_x = 0.;
+                                render_off_y = 0.;
+
+                                themes = levelset.themes.clone();
+                                deaths = 0;
+                                secret_count = levelset.secret_count;
+                                transition_ticks = 0;
+                                paused_frames = 0;
+
+                                if themes.len() == 0 {
+                                    themes.push(Theme {
+                                        ..Default::default()
+                                    })
+                                }
+
+                                for t in themes.iter() {
+                                    t.load_textures(&mut textures).await;
+                                }
+
+                                state = State::Game {
+                                    levelset: Some(levelset),
+                                    current_ind,
+                                    level,
+                                    global_state: levels::GlobalState::new(),
+                                    won: false,
+                                }
+                            }
+                            1 => state = State::Menu(MenuState::Main(0)),
+                            _ => unreachable!(),
+                        }
                     }
                 }
                 if paused && is_key_pressed(KeyCode::Z) {
