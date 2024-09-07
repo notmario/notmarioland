@@ -267,6 +267,99 @@ fn draw_number_text(t: &Texture2D, text: &str, x: f32, y: f32, c: Color, timer: 
     }
 }
 
+const FONT_KERN: [i32; 96] = [
+    4, 4, 2, 0, 0, 0, 0, 3, 2, 2, 1, 1, 3, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 1,
+    2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0,
+];
+const FONT_Y_OFF: [i32; 96] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 3, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0,
+];
+
+fn draw_text_cool(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
+    let mut back_off = 0;
+    for (i, ch) in t.chars().enumerate() {
+        let ind = ch as u32;
+        let ind = if ind >= 32 && ind <= 127 {
+            ind - 32
+        } else {
+            95
+        };
+        let (sx, sy) = (ind % 16, ind / 16);
+
+        let kern = FONT_KERN[ind as usize];
+        let yoff = FONT_Y_OFF[ind as usize];
+
+        draw_texture_ex(
+            &tx,
+            (x + i as i32 * 12 - kern - back_off) as f32,
+            (y + yoff) as f32,
+            c,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: sx as f32 * 12.,
+                    y: sy as f32 * 16.,
+                    w: 12.,
+                    h: 16.,
+                }),
+                ..Default::default()
+            },
+        );
+
+        back_off += kern * 2;
+    }
+}
+
+fn draw_text_cool_c(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
+    let mut total_width = 0;
+    for ch in t.chars() {
+        let ind = ch as u32;
+        let ind = if ind >= 32 && ind <= 127 {
+            ind - 32
+        } else {
+            95
+        };
+        let (sx, sy) = (ind % 16, ind / 16);
+
+        let kern = FONT_KERN[ind as usize];
+        total_width += 12 - kern * 2;
+    }
+
+    let mut back_off = 0;
+    for (i, ch) in t.chars().enumerate() {
+        let ind = ch as u32;
+        let ind = if ind >= 32 && ind <= 127 {
+            ind - 32
+        } else {
+            95
+        };
+        let (sx, sy) = (ind % 16, ind / 16);
+
+        let kern = FONT_KERN[ind as usize];
+        let yoff = FONT_Y_OFF[ind as usize];
+
+        draw_texture_ex(
+            &tx,
+            (x + i as i32 * 12 - kern - back_off - total_width / 2) as f32,
+            (y + yoff) as f32,
+            c,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: sx as f32 * 12.,
+                    y: sy as f32 * 16.,
+                    w: 12.,
+                    h: 16.,
+                }),
+                ..Default::default()
+            },
+        );
+
+        back_off += kern * 2;
+    }
+}
+
 enum TransitionAnimationType {
     None,
     Death(i32),
@@ -363,6 +456,7 @@ async fn main() {
         "assets/pauseexit-dull.png",
         "assets/winrightbase.png",
         "assets/numbers.png",
+        "assets/letters.png",
     ];
 
     for p in preload_textures {
@@ -405,6 +499,8 @@ async fn main() {
     let mut next_ind: Option<usize> = None;
     let mut levelset_ind = 0;
 
+    let font = texture_cache!(textures, "assets/letters.png");
+
     loop {
         clear_background(WHITE);
 
@@ -417,14 +513,14 @@ async fn main() {
                 set_camera(&cam_true);
                 match menu_state {
                     MenuState::Main(ind) => {
-                        draw_text("main menu (temporary)", 4., 12., 16., WHITE);
+                        draw_text_cool(&font, "main menu (temporary)", 4, 2, WHITE);
 
                         for (i, o) in ["play", "quit"].iter().enumerate() {
-                            draw_text(
-                                &format!("{}{}", if *ind == i { "> " } else { "  " }, o),
-                                4.,
-                                28. + 16. * i as f32,
-                                16.,
+                            draw_text_cool(
+                                &font,
+                                &format!("{}{}", if *ind == i { "> " } else { "    " }, o),
+                                4,
+                                22 + 20 * i as i32,
                                 WHITE,
                             );
                         }
@@ -446,14 +542,14 @@ async fn main() {
                         }
                     }
                     MenuState::LevelsetSelect(ind) => {
-                        draw_text("select levelset", 4., 12., 16., WHITE);
+                        draw_text_cool(&font, "select levelset", 4, 2, WHITE);
 
                         for (i, l) in levelsets.iter().chain(["back".into()].iter()).enumerate() {
-                            draw_text(
-                                &format!("{}{}", if *ind == i { "> " } else { "  " }, l),
-                                4.,
-                                28. + 16. * i as f32,
-                                16.,
+                            draw_text_cool(
+                                &font,
+                                &format!("{}{}", if *ind == i { "> " } else { "    " }, l),
+                                4,
+                                22 + 16 * i as i32,
                                 WHITE,
                             );
                         }
@@ -1015,15 +1111,19 @@ async fn main() {
 
                 draw_rectangle(
                     0.,
-                    SCREEN_HEIGHT as f32 - 16.,
+                    SCREEN_HEIGHT as f32 - 18.,
                     SCREEN_WIDTH as f32,
-                    16.,
+                    18.,
                     color_u8!(0, 0, 0, 191),
                 );
 
-                let x = (SCREEN_WIDTH - level.name.len() as i32 * 7) / 2;
-
-                draw_text(&level.name, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
+                draw_text_cool_c(
+                    &font,
+                    &level.name,
+                    SCREEN_WIDTH / 2,
+                    SCREEN_HEIGHT - 17,
+                    WHITE,
+                );
 
                 // let vel = level.player_vel();
                 // let g = level.player_obj().air_frames;
@@ -1159,11 +1259,11 @@ async fn main() {
                         let t = texture_cache!(textures, "assets/pausetopbase.png");
                         draw_texture(&t, 0., (-96. * (1. - prog)) as i32 as f32, WHITE);
 
-                        draw_text(
+                        draw_text_cool(
+                            &font,
                             "I need to implement this. For now it will remain static.",
-                            88.,
-                            48. + (-96. * (1. - prog)) as i32 as f32,
-                            32.,
+                            88,
+                            48 + (-96. * (1. - prog)) as i32,
                             WHITE,
                         );
                         let t = texture_cache!(textures, "assets/pauseleftbase.png");
@@ -1273,37 +1373,42 @@ async fn main() {
 
                     let t = texture_cache!(textures, "assets/pauseleftbase.png");
                     draw_texture(&t, (-192. * (1. - prog)) as i32 as f32, 0., WHITE);
+                    let numbers = texture_cache!(textures, "assets/numbers.png");
+
                     let t = format!(
                         "{:0>2}:{:0>2}",
                         global_state.timer / 3600,
                         (global_state.timer / 60) % 60,
                     );
-                    draw_text(
+                    draw_number_text(
+                        &numbers,
                         &t,
-                        71. + (-192. * (1. - prog)) as i32 as f32,
-                        176.,
-                        32.,
+                        64. + (-192. * (1. - prog)) as i32 as f32,
+                        149.,
                         BLACK,
+                        global_state.timer,
                     );
 
                     let t = format!("{}/{}", global_state.secrets, secret_count,);
-                    draw_text(
-                        &t,
-                        69. + (-192. * (1. - prog)) as i32 as f32,
-                        207.,
-                        32.,
-                        color_u8!(79, 6, 79, 255),
-                    );
 
+                    draw_number_text(
+                        &numbers,
+                        &t,
+                        65. + (-192. * (1. - prog)) as i32 as f32,
+                        186.,
+                        color_u8!(79, 6, 79, 255),
+                        global_state.timer,
+                    );
                     let t = format!("{}", deaths);
-                    draw_text(
+
+                    draw_number_text(
+                        &numbers,
                         &t,
                         67. + (-192. * (1. - prog)) as i32 as f32,
-                        247.,
-                        32.,
+                        221.,
                         color_u8!(79, 6, 6, 255),
+                        global_state.timer,
                     );
-
                     let t = texture_cache!(textures, "assets/pausebottom.png");
                     draw_texture(&t, 0., (150. * (1. - prog)) as i32 as f32, WHITE);
                     let t = texture_cache!(textures, "assets/winrightbase.png");
