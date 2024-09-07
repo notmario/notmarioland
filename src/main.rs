@@ -222,6 +222,51 @@ fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color) {
     );
 }
 
+fn draw_number_text(t: &Texture2D, text: &str, x: f32, y: f32, c: Color, timer: i32) {
+    let mut stash_off = 0;
+    let divs = [2, 3, 5, 7, 11, 13, 17, 19];
+    for (i, (ch, div)) in text.chars().zip(divs.iter()).enumerate() {
+        let off_x = match ch {
+            '0' => 0,
+            '1' => 1,
+            '2' => 2,
+            '3' => 3,
+            '4' => 4,
+            '5' => 5,
+            '6' => 6,
+            '7' => 7,
+            '8' => 8,
+            '9' => 9,
+            '/' => 10,
+            ':' => 11,
+            _ => 11,
+        } * 24;
+        let off_y = (timer / div) % 4 * 32;
+        if ch == ':' {
+            stash_off -= 6;
+        }
+
+        draw_texture_ex(
+            &t,
+            x + i as f32 * 20. + stash_off as f32,
+            y,
+            c,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: off_x as f32,
+                    y: off_y as f32,
+                    w: 24.,
+                    h: 32.,
+                }),
+                ..Default::default()
+            },
+        );
+        if ch == ':' {
+            stash_off -= 6;
+        }
+    }
+}
+
 enum TransitionAnimationType {
     None,
     Death(i32),
@@ -317,6 +362,7 @@ async fn main() {
         "assets/pauseexit.png",
         "assets/pauseexit-dull.png",
         "assets/winrightbase.png",
+        "assets/numbers.png",
     ];
 
     for p in preload_textures {
@@ -1106,35 +1152,41 @@ async fn main() {
                         let t = texture_cache!(textures, "assets/pauseleftbase.png");
                         draw_texture(&t, (-192. * (1. - prog)) as i32 as f32, 0., WHITE);
 
+                        let numbers = texture_cache!(textures, "assets/numbers.png");
+
                         let t = format!(
                             "{:0>2}:{:0>2}",
                             global_state.timer / 3600,
                             (global_state.timer / 60) % 60,
                         );
-                        draw_text(
+                        draw_number_text(
+                            &numbers,
                             &t,
-                            71. + (-192. * (1. - prog)) as i32 as f32,
-                            176.,
-                            32.,
+                            64. + (-192. * (1. - prog)) as i32 as f32,
+                            149.,
                             BLACK,
+                            global_state.timer,
                         );
 
                         let t = format!("{}/{}", global_state.secrets, secret_count,);
-                        draw_text(
-                            &t,
-                            69. + (-192. * (1. - prog)) as i32 as f32,
-                            207.,
-                            32.,
-                            color_u8!(79, 6, 79, 255),
-                        );
 
+                        draw_number_text(
+                            &numbers,
+                            &t,
+                            65. + (-192. * (1. - prog)) as i32 as f32,
+                            186.,
+                            color_u8!(79, 6, 79, 255),
+                            global_state.timer,
+                        );
                         let t = format!("{}", deaths);
-                        draw_text(
+
+                        draw_number_text(
+                            &numbers,
                             &t,
                             67. + (-192. * (1. - prog)) as i32 as f32,
-                            247.,
-                            32.,
+                            221.,
                             color_u8!(79, 6, 6, 255),
+                            global_state.timer,
                         );
 
                         let t = texture_cache!(textures, "assets/pausebottom.png");
