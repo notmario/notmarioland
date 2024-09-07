@@ -1139,6 +1139,23 @@ async fn main() {
                             color_u8!(0, 0, 0, (224. * prog) as u8),
                         );
 
+                        if levelset.is_some() {
+                            let sy = levelset.as_ref().expect("is some").levels[*current_ind].tiles
+                                [0]
+                            .len();
+                            let sx = levelset.as_ref().expect("is some").levels[*current_ind].tiles
+                                [0][0]
+                                .len();
+                            levelset.as_ref().expect("is some").levels[*current_ind].minimap_draw(
+                                SCREEN_WIDTH / 2 - sx as i32,
+                                ((SCREEN_HEIGHT / 2) as f32 * (5. - 4. * prog)) as i32 - sy as i32,
+                                &levelset.as_ref().expect("is some").levels,
+                                &mut vec![*current_ind],
+                                *current_ind,
+                                &global_state.changed_tiles,
+                            );
+                        }
+
                         let t = texture_cache!(textures, "assets/pausetopbase.png");
                         draw_texture(&t, 0., (-96. * (1. - prog)) as i32 as f32, WHITE);
 

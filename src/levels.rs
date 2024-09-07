@@ -283,6 +283,15 @@ impl Tile {
         }
     }
 
+    fn minimap_col(&self) -> Color {
+        match self {
+            Self::Wall | Self::Wall2 | Self::Wall3 => WHITE,
+            Self::Wall4 => BLUE,
+            Self::Spikes => color_u8!(255, 104, 104, 255),
+            _ => color_u8!(0, 0, 0, 0),
+        }
+    }
+
     pub fn draw(
         &self,
         x: i32,
@@ -1474,7 +1483,7 @@ pub struct SideOffsets {
 #[derive(Clone)]
 pub struct LevelRaw {
     name: String,
-    tiles: Vec<Vec<Vec<Tile>>>,
+    pub tiles: Vec<Vec<Vec<Tile>>>,
     exits: SideExits,
     door_exits: Vec<usize>,
     theme: Option<usize>,
@@ -1679,6 +1688,109 @@ impl LevelRaw {
                 themes,
                 default_theme,
             );
+        };
+    }
+
+    pub fn minimap_draw(
+        &self,
+        off_x: i32,
+        off_y: i32,
+        levels: &Vec<LevelRaw>,
+        seen: &mut Vec<usize>,
+        my_ind: usize,
+        subs: &HashMap<(usize, usize, usize, usize), Tile>,
+    ) {
+        let tile_size_thing = 2;
+        let (ly, lx) = (self.tiles[0].len(), self.tiles[0][0].len());
+        if seen.len() == 1 {
+            draw_rectangle(
+                off_x as f32 - 1.,
+                off_y as f32 - 1.,
+                (lx * 2 + 2) as f32,
+                (ly * 2 + 2) as f32,
+                color_u8!(255, 255, 255, 31),
+            );
+            draw_rectangle_lines(
+                off_x as f32 - 1.,
+                off_y as f32 - 1.,
+                (lx * 2 + 2) as f32,
+                (ly * 2 + 2) as f32,
+                1.,
+                WHITE,
+            );
+        }
+        for l in self.tiles.iter() {
+            for (y, row) in l.iter().enumerate() {
+                for (x, tile) in row.iter().enumerate() {
+                    draw_rectangle(
+                        (off_x + x as i32 * tile_size_thing) as f32,
+                        (off_y + y as i32 * tile_size_thing) as f32,
+                        tile_size_thing as f32,
+                        tile_size_thing as f32,
+                        tile.minimap_col(),
+                    )
+                }
+            }
+        }
+        if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
+            let ind = self.exits.left.expect("is some");
+            seen.push(ind);
+
+            let offset = levels[ind].tiles[0][0].len() as i32 * tile_size_thing;
+            let perp_offset = (self.side_offsets().left.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .right
+                    .expect("corresponding should have exit anchor"))
+                / TILE_SIZE
+                * tile_size_thing;
+
+            levels[ind].minimap_draw(off_x - offset, off_y + perp_offset, levels, seen, ind, subs);
+        };
+        if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
+            let ind = self.exits.right.expect("is some");
+            seen.push(ind);
+
+            let offset = self.tiles[0][0].len() as i32 * tile_size_thing;
+            let perp_offset = (self.side_offsets().right.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .left
+                    .expect("corresponding should have exit anchor"))
+                / TILE_SIZE
+                * tile_size_thing;
+
+            levels[ind].minimap_draw(off_x + offset, off_y + perp_offset, levels, seen, ind, subs);
+        };
+        if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
+            let ind = self.exits.up.expect("is some");
+            seen.push(ind);
+
+            let offset = levels[ind].tiles[0].len() as i32 * tile_size_thing;
+            let perp_offset = (self.side_offsets().up.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .down
+                    .expect("corresponding should have exit anchor"))
+                / TILE_SIZE
+                * tile_size_thing;
+
+            levels[ind].minimap_draw(off_x + perp_offset, off_y - offset, levels, seen, ind, subs);
+        };
+        if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
+            let ind = self.exits.down.expect("is some");
+            seen.push(ind);
+
+            let offset = self.tiles[0].len() as i32 * tile_size_thing;
+            let perp_offset = (self.side_offsets().down.expect("is some")
+                - levels[ind]
+                    .side_offsets()
+                    .up
+                    .expect("corresponding should have exit anchor"))
+                / TILE_SIZE
+                * tile_size_thing;
+
+            levels[ind].minimap_draw(off_x + perp_offset, off_y + offset, levels, seen, ind, subs);
         };
     }
 
