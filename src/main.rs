@@ -268,7 +268,7 @@ fn draw_number_text(t: &Texture2D, text: &str, x: f32, y: f32, c: Color, timer: 
 }
 
 const FONT_KERN: [i32; 96] = [
-    4, 4, 2, 0, 0, 0, 0, 3, 2, 2, 1, 1, 3, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0,
+    4, 3, 2, 0, 0, 0, 0, 3, 2, 2, 1, 1, 3, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 1,
     2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0,
 ];
@@ -360,6 +360,73 @@ fn draw_text_cool_c(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
     }
 }
 
+fn draw_tip_text(tx: &Texture2D, t: &str, x: i32, y: i32, w: i32, slant_every: i32, c: Color) {
+    let mut c_line_width = 0;
+    let mut lines: Vec<usize> = vec![0];
+    for word in t.split(" ") {
+        let mut my_width = 0;
+        for ch in word.chars() {
+            let ind = ch as u32;
+            let ind = if ind >= 32 && ind <= 127 {
+                ind - 32
+            } else {
+                95
+            };
+            let (sx, sy) = (ind % 16, ind / 16);
+
+            let kern = FONT_KERN[ind as usize];
+            my_width += 12 - kern * 2;
+        }
+        if c_line_width + my_width < w {
+            c_line_width += my_width + 4;
+            *lines.last_mut().expect("should have last") += word.len() + 1
+        } else {
+            c_line_width = my_width + 4;
+            lines.push(word.len() + 1);
+        }
+    }
+    let mut back_off = 0;
+    let mut current_line = 0;
+    let mut ind_off = 0;
+    for (i, ch) in t.chars().enumerate() {
+        if i - ind_off >= lines[current_line] {
+            back_off = 0;
+            ind_off += lines[current_line];
+            current_line += 1;
+        }
+        let ind = ch as u32;
+        let ind = if ind >= 32 && ind <= 127 {
+            ind - 32
+        } else {
+            95
+        };
+        let (sx, sy) = (ind % 16, ind / 16);
+
+        let kern = FONT_KERN[ind as usize];
+        let yoff = FONT_Y_OFF[ind as usize];
+
+        let slant = (i - ind_off) as i32 / slant_every;
+
+        draw_texture_ex(
+            &tx,
+            (x + (i - ind_off) as i32 * 12 - kern - back_off) as f32,
+            (y + yoff + current_line as i32 * 18 - lines.len() as i32 * 9 - slant) as f32,
+            c,
+            DrawTextureParams {
+                source: Some(Rect {
+                    x: sx as f32 * 12.,
+                    y: sy as f32 * 16.,
+                    w: 12.,
+                    h: 16.,
+                }),
+                ..Default::default()
+            },
+        );
+
+        back_off += kern * 2;
+    }
+}
+
 enum TransitionAnimationType {
     None,
     Death(i32),
@@ -381,6 +448,9 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
+
+    let tips = std::fs::read_to_string("tips.txt").expect("Tips are an essential feature.");
+    let tips: Vec<&str> = tips.lines().collect();
 
     let levelsets: Vec<String> = std::fs::read_dir("levels/")
         .expect("directory should exist")
@@ -1259,11 +1329,13 @@ async fn main() {
                         let t = texture_cache!(textures, "assets/pausetopbase.png");
                         draw_texture(&t, 0., (-96. * (1. - prog)) as i32 as f32, WHITE);
 
-                        draw_text_cool(
+                        draw_tip_text(
                             &font,
-                            "I need to implement this. For now it will remain static.",
-                            88,
-                            48 + (-96. * (1. - prog)) as i32,
+                            &tips[global_state.timer as usize % tips.len()],
+                            78,
+                            42 + (-100. * (1. - prog)) as i32,
+                            330,
+                            5,
                             WHITE,
                         );
                         let t = texture_cache!(textures, "assets/pauseleftbase.png");
@@ -1279,7 +1351,7 @@ async fn main() {
                         draw_number_text(
                             &numbers,
                             &t,
-                            64. + (-192. * (1. - prog)) as i32 as f32,
+                            64. + (-200. * (1. - prog)) as i32 as f32,
                             149.,
                             BLACK,
                             global_state.timer,
@@ -1290,7 +1362,7 @@ async fn main() {
                         draw_number_text(
                             &numbers,
                             &t,
-                            65. + (-192. * (1. - prog)) as i32 as f32,
+                            65. + (-200. * (1. - prog)) as i32 as f32,
                             186.,
                             color_u8!(79, 6, 79, 255),
                             global_state.timer,
@@ -1300,7 +1372,7 @@ async fn main() {
                         draw_number_text(
                             &numbers,
                             &t,
-                            67. + (-192. * (1. - prog)) as i32 as f32,
+                            67. + (-200. * (1. - prog)) as i32 as f32,
                             221.,
                             color_u8!(79, 6, 6, 255),
                             global_state.timer,
