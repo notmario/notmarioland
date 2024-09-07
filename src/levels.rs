@@ -2276,7 +2276,11 @@ pub fn load_levelset(path: &str) -> Levelset {
 
             // println!("reading {}/{}.nmltheme", path, l);
 
-            themes.push(Theme::from_path(&format!("{}/{}.nmltheme", path, l)));
+            if l == "null" {
+                themes.push(Theme::default())
+            } else {
+                themes.push(Theme::from_path(&format!("{}/{}.nmltheme", path, l)));
+            }
         }
     }
 

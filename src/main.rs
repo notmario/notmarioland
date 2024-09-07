@@ -136,26 +136,26 @@ impl Theme {
             texture!(textures, self.wall_1.as_ref().expect("is some"));
         }
         if self.wall_2.is_some() {
-            texture!(textures, self.wall_1.as_ref().expect("is some"));
+            texture!(textures, self.wall_2.as_ref().expect("is some"));
         }
         if self.wall_3.is_some() {
-            texture!(textures, self.wall_1.as_ref().expect("is some"));
+            texture!(textures, self.wall_3.as_ref().expect("is some"));
         }
         if self.wall_4.is_some() {
-            texture!(textures, self.wall_1.as_ref().expect("is some"));
+            texture!(textures, self.wall_4.as_ref().expect("is some"));
         }
 
         if self.back_wall_1.is_some() {
             texture!(textures, self.back_wall_1.as_ref().expect("is some"));
         }
         if self.back_wall_2.is_some() {
-            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+            texture!(textures, self.back_wall_2.as_ref().expect("is some"));
         }
         if self.back_wall_3.is_some() {
-            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+            texture!(textures, self.back_wall_3.as_ref().expect("is some"));
         }
         if self.back_wall_4.is_some() {
-            texture!(textures, self.back_wall_1.as_ref().expect("is some"));
+            texture!(textures, self.back_wall_4.as_ref().expect("is some"));
         }
     }
 }
@@ -737,7 +737,7 @@ async fn main() {
                             *is_pressed = true
                         }
                     }
-                    paused_frames = (paused_frames - 3).clamp(0, 80);
+                    paused_frames = (paused_frames - 2).clamp(0, 80);
                     if remaining_timer * 60. >= 1. {
                         transition_ticks += 1;
                     }
@@ -1088,14 +1088,67 @@ async fn main() {
                     let s_p_b_x = (render_off_x + level.theme_offset.0 as f32) / TILE_PIXELS as f32;
                     let s_p_b_y = (render_off_y + level.theme_offset.1 as f32) / TILE_PIXELS as f32;
 
-                    let x =
-                        layer.off_x + (layer.para_factor_x as f32 * s_p_b_x) as i32 / PIXEL_SIZE;
-                    let y =
-                        layer.off_y + (layer.para_factor_y as f32 * s_p_b_y) as i32 / PIXEL_SIZE;
+                    let x = layer.off_x
+                        + (layer.para_factor_x as f32 * s_p_b_x
+                            + (global_state.timer * layer.scroll_x) as f32)
+                            as i32
+                            % if layer.mod_x == 1 {
+                                std::i32::MAX
+                            } else {
+                                layer.mod_x
+                            }
+                            / PIXEL_SIZE;
+                    let y = layer.off_y
+                        + (layer.para_factor_y as f32 * s_p_b_y
+                            + (global_state.timer * layer.scroll_y) as f32)
+                            as i32
+                            % if layer.mod_y == 1 {
+                                std::i32::MAX
+                            } else {
+                                layer.mod_y
+                            }
+                            / PIXEL_SIZE;
 
                     let t = texture_cache!(&mut textures, &layer.image);
 
                     draw_texture(&t, x as f32, y as f32, WHITE);
+
+                    if layer.mod_x != 1 {
+                        draw_texture(&t, (x - layer.mod_x / PIXEL_SIZE) as f32, y as f32, WHITE);
+                        draw_texture(&t, (x + layer.mod_x / PIXEL_SIZE) as f32, y as f32, WHITE);
+                    }
+
+                    if layer.mod_y != 1 {
+                        draw_texture(&t, x as f32, (y - layer.mod_y / PIXEL_SIZE) as f32, WHITE);
+                        draw_texture(&t, x as f32, (y + layer.mod_y / PIXEL_SIZE) as f32, WHITE);
+                    }
+
+                    if layer.mod_x != 1 && layer.mod_y != -1 {
+                        draw_texture(
+                            &t,
+                            (x - layer.mod_x / PIXEL_SIZE) as f32,
+                            (y - layer.mod_y / PIXEL_SIZE) as f32,
+                            WHITE,
+                        );
+                        draw_texture(
+                            &t,
+                            (x + layer.mod_x / PIXEL_SIZE) as f32,
+                            (y - layer.mod_y / PIXEL_SIZE) as f32,
+                            WHITE,
+                        );
+                        draw_texture(
+                            &t,
+                            (x - layer.mod_x / PIXEL_SIZE) as f32,
+                            (y + layer.mod_y / PIXEL_SIZE) as f32,
+                            WHITE,
+                        );
+                        draw_texture(
+                            &t,
+                            (x + layer.mod_x / PIXEL_SIZE) as f32,
+                            (y + layer.mod_y / PIXEL_SIZE) as f32,
+                            WHITE,
+                        );
+                    }
                 }
 
                 // draw_rectangle(255., 191., 2., 2., BLUE);
@@ -1250,7 +1303,12 @@ async fn main() {
                     let prog = prog.clamp(0., 1.);
                     let threed_cam = Camera3D {
                         position: Vec3 {
-                            x: SCREEN_WIDTH as f32 * (1. + prog * 1.),
+                            x: SCREEN_WIDTH as f32
+                                * if !paused && !*won {
+                                    1. + (prog * 5. - 4.).max(0.)
+                                } else {
+                                    1. + prog * 1.
+                                },
                             y: SCREEN_HEIGHT as f32 * (1. - prog * 1.),
                             z: -637.394 * (1. + prog * 2.),
                         },
