@@ -445,9 +445,55 @@ fn window_conf() -> Conf {
     }
 }
 
+const PAUSE_BG_FRAGMENT_SHADER: &'static str = include_str!("pause_bg.frag");
+const DEFAULT_VERTEX_SHADER: &'static str = "#version 100
+precision lowp float;
+
+attribute vec3 position;
+attribute vec2 texcoord;
+
+varying vec2 uv;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    uv = texcoord;
+}
+";
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
+
+    let fs = PAUSE_BG_FRAGMENT_SHADER.to_string();
+    let vs = DEFAULT_VERTEX_SHADER.to_string();
+
+    let bg_material = load_material(
+        ShaderSource::Glsl {
+            vertex: &vs,
+            fragment: &fs,
+        },
+        MaterialParams {
+            uniforms: vec![
+                UniformDesc {
+                    name: "iResolution".into(),
+                    uniform_type: UniformType::Float2,
+                    array_count: 1,
+                },
+                UniformDesc {
+                    name: "iTime".into(),
+                    uniform_type: UniformType::Float1,
+                    array_count: 1,
+                },
+            ],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    bg_material.set_uniform("iResolution", [SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32]);
 
     let tips = std::fs::read_to_string("tips.txt").expect("Tips are an essential feature.");
     let tips: Vec<&str> = tips.lines().collect();
@@ -568,6 +614,8 @@ async fn main() {
     let mut transition_ticks: i32 = 0;
     let mut next_ind: Option<usize> = None;
     let mut levelset_ind = 0;
+
+    let mut global_timer = 0.;
 
     let font = texture_cache!(textures, "assets/letters.png");
 
@@ -730,6 +778,7 @@ async fn main() {
                 }
                 if !paused && !*won {
                     let delta = get_frame_time();
+                    global_timer += delta;
                     remaining_timer += delta;
 
                     for (keycode, is_pressed) in keys_pressed.iter_mut() {
@@ -1061,6 +1110,7 @@ async fn main() {
                     }
                 } else {
                     let delta = get_frame_time();
+                    global_timer += delta;
                     remaining_timer += delta;
                     if remaining_timer * 60. >= 1. {
                         paused_frames += 1;
@@ -1323,13 +1373,22 @@ async fn main() {
                             y: -1.,
                             z: prog / 5.,
                         },
-                        fovy: std::f32::consts::FRAC_PI_3 * (3. - prog) / 3.,
+                        fovy: std::f32::consts::FRAC_PI_3 * (7. + prog) / 7.,
                         aspect: None,
                         projection: Projection::Perspective,
                         render_target: None,
                         viewport: None,
                     };
+
+                    bg_material.set_uniform("iTime", global_timer * 2.);
+                    // material.set_uniform("mix_v", prog);
+                    gl_use_material(&bg_material);
+                    set_camera(&cam_true);
+                    draw_rectangle(0., 0., SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, WHITE);
+                    gl_use_default_material();
+
                     set_camera(&threed_cam);
+
                     draw_cube(
                         Vec3 {
                             x: SCREEN_WIDTH as f32,
@@ -1344,6 +1403,7 @@ async fn main() {
                         None,
                         color_u8!(148, 78, 238, 255),
                     );
+
                     draw_texture_ex(
                         &render_target.texture,
                         0.,
@@ -1351,8 +1411,8 @@ async fn main() {
                         WHITE,
                         DrawTextureParams {
                             dest_size: Some(Vec2 {
-                                x: screen_width(),
-                                y: screen_height(),
+                                x: (SCREEN_WIDTH * 2) as f32,
+                                y: (SCREEN_HEIGHT * 2) as f32,
                             }),
                             ..Default::default()
                         },
@@ -1365,7 +1425,7 @@ async fn main() {
                             0.,
                             SCREEN_WIDTH as f32 * 2.,
                             SCREEN_HEIGHT as f32 * 2.,
-                            color_u8!(0, 0, 0, (224. * prog) as u8),
+                            color_u8!(0, 0, 0, (128. * prog) as u8),
                         );
 
                         if levelset.is_some() {
