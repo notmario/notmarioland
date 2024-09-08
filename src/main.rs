@@ -167,59 +167,96 @@ struct Adjacencies {
     right: bool,
 }
 
-fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color) {
+fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color, wt: Option<&Texture2D>) {
     let k = 0.5;
     let j = 0.75_f32.sqrt();
 
-    draw_rectangle(
-        x - r * j - SCREEN_WIDTH as f32 * 2.,
-        y - SCREEN_HEIGHT as f32 * 2.,
-        SCREEN_WIDTH as f32 * 2.,
-        SCREEN_HEIGHT as f32 * 4.,
-        c,
-    );
-    draw_rectangle(
-        x + r * j,
-        y - SCREEN_HEIGHT as f32 * 2.,
-        SCREEN_WIDTH as f32 * 2.,
-        SCREEN_HEIGHT as f32 * 4.,
-        c,
-    );
-    draw_rectangle(
-        x - r * j,
-        y - r - SCREEN_HEIGHT as f32 * 2.,
-        r * 2. * j,
-        SCREEN_HEIGHT as f32 * 2.,
-        c,
-    );
+    if wt.is_none() {
+        draw_rectangle(
+            x - r * j - SCREEN_WIDTH as f32 * 2.,
+            y - SCREEN_HEIGHT as f32 * 2.,
+            SCREEN_WIDTH as f32 * 2.,
+            SCREEN_HEIGHT as f32 * 4.,
+            c,
+        );
+        draw_rectangle(
+            x + r * j,
+            y - SCREEN_HEIGHT as f32 * 2.,
+            SCREEN_WIDTH as f32 * 2.,
+            SCREEN_HEIGHT as f32 * 4.,
+            c,
+        );
+        draw_rectangle(
+            x - r * j,
+            y - r - SCREEN_HEIGHT as f32 * 2.,
+            r * 2. * j,
+            SCREEN_HEIGHT as f32 * 2.,
+            c,
+        );
+        draw_rectangle(x - r * j, y + r * k, r * 2., SCREEN_HEIGHT as f32 * 2., c);
 
-    draw_rectangle(x - r * j, y + r * k, r * 2., SCREEN_HEIGHT as f32 * 2., c);
+        draw_triangle(
+            Vec2 {
+                x: x - r * j,
+                y: y - r,
+            },
+            Vec2 { x, y: y - r },
+            Vec2 {
+                x: x - r * j,
+                y: y + r * k,
+            },
+            c,
+        );
 
-    draw_triangle(
-        Vec2 {
-            x: x - r * j,
-            y: y - r,
-        },
-        Vec2 { x, y: y - r },
-        Vec2 {
-            x: x - r * j,
-            y: y + r * k,
-        },
-        c,
-    );
-
-    draw_triangle(
-        Vec2 {
-            x: x + r * j,
-            y: y - r,
-        },
-        Vec2 { x, y: y - r },
-        Vec2 {
-            x: x + r * j,
-            y: y + r * k,
-        },
-        c,
-    );
+        draw_triangle(
+            Vec2 {
+                x: x + r * j,
+                y: y - r,
+            },
+            Vec2 { x, y: y - r },
+            Vec2 {
+                x: x + r * j,
+                y: y + r * k,
+            },
+            c,
+        );
+    } else {
+        draw_rectangle(
+            x - r - SCREEN_WIDTH as f32 * 2.,
+            y - SCREEN_HEIGHT as f32 * 2.,
+            SCREEN_WIDTH as f32 * 2.,
+            SCREEN_HEIGHT as f32 * 4.,
+            c,
+        );
+        draw_rectangle(
+            x + r,
+            y - SCREEN_HEIGHT as f32 * 2.,
+            SCREEN_WIDTH as f32 * 2.,
+            SCREEN_HEIGHT as f32 * 4.,
+            c,
+        );
+        draw_rectangle(
+            x - r,
+            y - r - SCREEN_HEIGHT as f32 * 2.,
+            r * 2.,
+            SCREEN_HEIGHT as f32 * 2.,
+            c,
+        );
+        draw_rectangle(x - r, y + r, r * 2., SCREEN_HEIGHT as f32 * 2., c);
+        draw_texture_ex(
+            wt.expect("is some"),
+            x - r,
+            y - r,
+            c,
+            DrawTextureParams {
+                dest_size: Some(Vec2 {
+                    x: r * 2.,
+                    y: r * 2.,
+                }),
+                ..Default::default()
+            },
+        );
+    }
 }
 
 fn draw_number_text(t: &Texture2D, text: &str, x: f32, y: f32, c: Color, timer: i32) {
@@ -321,8 +358,6 @@ fn draw_text_cool_c(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
         } else {
             95
         };
-        let (sx, sy) = (ind % 16, ind / 16);
-
         let kern = FONT_KERN[ind as usize];
         total_width += 12 - kern * 2;
     }
@@ -430,7 +465,7 @@ fn draw_tip_text(tx: &Texture2D, t: &str, x: i32, y: i32, w: i32, slant_every: i
 enum TransitionAnimationType {
     None,
     Death(i32),
-    Door(i32),
+    Door(bool),
 }
 
 fn window_conf() -> Conf {
@@ -554,6 +589,7 @@ async fn main() {
         "assets/goal.png",
         "assets/door.png",
         "assets/secretdoor.png",
+        "assets/secretwindow.png",
         "assets/spike.png",
         "assets/jumparrow.png",
         "assets/jumparrowoutline.png",
@@ -573,6 +609,7 @@ async fn main() {
         "assets/winrightbase.png",
         "assets/numbers.png",
         "assets/letters.png",
+        "assets/binocular.png",
     ];
 
     for p in preload_textures {
@@ -612,6 +649,7 @@ async fn main() {
     let mut deaths = 0;
     let mut secret_count = 0;
     let mut transition_ticks: i32 = 0;
+    let mut secret_transition = false;
     let mut next_ind: Option<usize> = None;
     let mut levelset_ind = 0;
 
@@ -704,6 +742,7 @@ async fn main() {
                                 deaths = 0;
                                 secret_count = levelset.secret_count;
                                 transition_ticks = 0;
+                                secret_transition = false;
                                 paused_frames = 0;
 
                                 if themes.len() == 0 {
@@ -773,8 +812,12 @@ async fn main() {
             } => {
                 set_camera(&cam);
                 if is_key_pressed(KeyCode::Escape) {
-                    paused = !paused;
-                    paused_selection = 0;
+                    if global_state.binocularing {
+                        global_state.binocularing = false;
+                    } else {
+                        paused = !paused;
+                        paused_selection = 0;
+                    }
                 }
                 if !paused && !*won {
                     let delta = get_frame_time();
@@ -788,7 +831,35 @@ async fn main() {
                     }
                     paused_frames = (paused_frames - 2).clamp(0, 80);
                     if remaining_timer * 60. >= 1. {
+                        if global_state.binocularing {
+                            global_state.binocular_t = (global_state.binocular_t + 1).min(30);
+                        } else {
+                            global_state.binocular_t = (global_state.binocular_t - 1).max(0);
+                        }
                         transition_ticks += 1;
+                        if levelset.is_some() {
+                            let l = levelset.as_ref().expect("is some").levels.len() - 1;
+                            if *keys_pressed.entry(KeyCode::LeftBracket).or_insert(false) {
+                                transition_ticks = -20;
+                                secret_transition = false;
+                                if *current_ind == 0 {
+                                    next_ind = Some(l);
+                                } else {
+                                    next_ind = Some(*current_ind - 1);
+                                }
+                                keys_pressed.insert(KeyCode::LeftBracket, false);
+                            }
+                            if *keys_pressed.entry(KeyCode::RightBracket).or_insert(false) {
+                                transition_ticks = -20;
+                                secret_transition = false;
+                                if *current_ind == l {
+                                    next_ind = Some(0);
+                                } else {
+                                    next_ind = Some(*current_ind + 1);
+                                }
+                                keys_pressed.insert(KeyCode::RightBracket, false);
+                            }
+                        }
                     }
 
                     if transition_ticks == -1 && remaining_timer * 60. >= 1. {
@@ -1018,6 +1089,7 @@ async fn main() {
                             } else {
                                 if levelset.is_some() {
                                     transition_ticks = -80;
+                                    secret_transition = false;
 
                                     deaths += 1;
                                 } else {
@@ -1026,6 +1098,7 @@ async fn main() {
                             }
                         } else if levelset.is_some()
                             && *keys_pressed.entry(KeyCode::Up).or_insert(false)
+                            && !global_state.binocularing
                         {
                             let p_obj = level.player_obj();
                             let grounded = p_obj.grounded;
@@ -1038,6 +1111,7 @@ async fn main() {
                                     // println!("we should be going to {}", index);
 
                                     transition_ticks = -20;
+                                    secret_transition = false;
                                     next_ind = Some(index)
                                 }
                             } else if let Some(levels::Tile::SecretDoor(index)) = doors {
@@ -1045,7 +1119,44 @@ async fn main() {
                                     // println!("we should be going to {}", index);
 
                                     transition_ticks = -20;
+                                    secret_transition = true;
                                     next_ind = Some(index)
+                                }
+                            } else if let Some(levels::Tile::Binocular) = doors {
+                                if grounded {
+                                    global_state.binocularing = true;
+                                    global_state.binocular_rx = if d.0 * TILE_PIXELS < SCREEN_WIDTH
+                                    {
+                                        SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2
+                                    } else {
+                                        let p_pos = level.focus_position().0;
+                                        let p_pos = p_pos + level.player_vel().0 * 8;
+                                        if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
+                                            0
+                                        } else if p_pos / PIXEL_SIZE
+                                            > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2
+                                        {
+                                            -(d.0 * TILE_PIXELS - SCREEN_WIDTH)
+                                        } else {
+                                            -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2)
+                                        }
+                                    };
+                                    global_state.binocular_ry = if d.1 * TILE_PIXELS < SCREEN_HEIGHT
+                                    {
+                                        SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2
+                                    } else {
+                                        let p_pos = level.focus_position().1;
+                                        let p_pos = p_pos + level.player_vel().1 * 8;
+                                        if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
+                                            0
+                                        } else if p_pos / PIXEL_SIZE
+                                            > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2
+                                        {
+                                            -(d.1 * TILE_PIXELS - SCREEN_HEIGHT)
+                                        } else {
+                                            -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2)
+                                        }
+                                    };
                                 }
                             }
                         } else {
@@ -1057,6 +1168,8 @@ async fn main() {
                             {
                                 if levelset.is_some() {
                                     transition_ticks = -80;
+
+                                    secret_transition = false;
 
                                     deaths += 1;
                                 } else {
@@ -1076,34 +1189,63 @@ async fn main() {
                         }
 
                         let d = level.dimensions();
-                        let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
-                            (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
-                        } else {
-                            let p_pos = level.focus_position().0;
-                            let p_pos = p_pos + level.player_vel().0 * 8;
-                            if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
-                                0.
-                            } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2 {
-                                -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
+                        if !global_state.binocularing {
+                            let t_r_o_x = if d.0 * TILE_PIXELS < SCREEN_WIDTH {
+                                (SCREEN_WIDTH / 2 - d.0 * TILE_PIXELS / 2) as f32
                             } else {
-                                -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
-                            }
-                        };
-                        let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
-                            (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
-                        } else {
-                            let p_pos = level.focus_position().1;
-                            let p_pos = p_pos + level.player_vel().1 * 8;
-                            if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
-                                0.
-                            } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2 {
-                                -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
+                                let p_pos = level.focus_position().0;
+                                let p_pos = p_pos + level.player_vel().0 * 8;
+                                if p_pos / PIXEL_SIZE < SCREEN_WIDTH / 2 {
+                                    0.
+                                } else if p_pos / PIXEL_SIZE > d.0 * TILE_PIXELS - SCREEN_WIDTH / 2
+                                {
+                                    -(d.0 * TILE_PIXELS - SCREEN_WIDTH) as f32
+                                } else {
+                                    -(p_pos / PIXEL_SIZE - SCREEN_WIDTH / 2) as f32
+                                }
+                            };
+                            let t_r_o_y = if d.1 * TILE_PIXELS < SCREEN_HEIGHT {
+                                (SCREEN_HEIGHT / 2 - d.1 * TILE_PIXELS / 2) as f32
                             } else {
-                                -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
+                                let p_pos = level.focus_position().1;
+                                let p_pos = p_pos + level.player_vel().1 * 8;
+                                if p_pos / PIXEL_SIZE < SCREEN_HEIGHT / 2 {
+                                    0.
+                                } else if p_pos / PIXEL_SIZE > d.1 * TILE_PIXELS - SCREEN_HEIGHT / 2
+                                {
+                                    -(d.1 * TILE_PIXELS - SCREEN_HEIGHT) as f32
+                                } else {
+                                    -(p_pos / PIXEL_SIZE - SCREEN_HEIGHT / 2) as f32
+                                }
+                            };
+                            render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
+                            render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
+                        } else {
+                            if is_key_down(KeyCode::Up) {
+                                global_state.binocular_ry += 5;
                             }
-                        };
-                        render_off_x = (render_off_x * 11. + t_r_o_x) / 12.;
-                        render_off_y = (render_off_y * 11. + t_r_o_y) / 12.;
+                            if is_key_down(KeyCode::Down) {
+                                global_state.binocular_ry -= 5;
+                            }
+                            if is_key_down(KeyCode::Left) {
+                                global_state.binocular_rx += 5;
+                            }
+                            if is_key_down(KeyCode::Right) {
+                                global_state.binocular_rx -= 5;
+                            }
+
+                            global_state.binocular_rx = global_state
+                                .binocular_rx
+                                .clamp((d.0 - 40) * -TILE_PIXELS, 0);
+                            global_state.binocular_ry = global_state
+                                .binocular_ry
+                                .clamp((d.1 - 23) * -TILE_PIXELS, 0);
+
+                            render_off_x =
+                                (render_off_x * 7. + global_state.binocular_rx as f32) / 8.;
+                            render_off_y =
+                                (render_off_y * 7. + global_state.binocular_ry as f32) / 8.;
+                        }
                     }
                     if remaining_timer * 60. >= 1. {
                         remaining_timer -= 1. / 60.;
@@ -1256,7 +1398,7 @@ async fn main() {
 
                 let transition_type = if transition_ticks < 0 {
                     if next_ind.is_some() {
-                        TransitionAnimationType::Door(-transition_ticks)
+                        TransitionAnimationType::Door(secret_transition)
                     } else {
                         TransitionAnimationType::Death(-transition_ticks)
                     }
@@ -1275,10 +1417,37 @@ async fn main() {
 
                 let player_pos = level.focus_position();
                 if transition_ticks < 30 {
+                    let t = if secret_transition {
+                        Some(texture_cache!(textures, "assets/secretwindow.png"))
+                    } else {
+                        None
+                    };
                     draw_inverted_circle(
                         (player_pos.0 / PIXEL_SIZE) as f32 + (render_off_x as i32) as f32,
                         (player_pos.1 / PIXEL_SIZE) as f32 + (render_off_y as i32) as f32,
                         64. * ((transition_ticks.abs() as f32) / 12.5).powi(4),
+                        BLACK,
+                        t.as_ref(),
+                    );
+                }
+                if global_state.binocular_t > 0 {
+                    let p = ((1.
+                        - (1. - (global_state.binocular_t as f32 / 30.).clamp(0., 1.)).powi(2))
+                        * 16.) as i32;
+                    draw_rectangle(0., 0., p as f32, SCREEN_HEIGHT as f32, BLACK);
+                    draw_rectangle(
+                        (SCREEN_WIDTH - p) as f32,
+                        0.,
+                        p as f32,
+                        SCREEN_HEIGHT as f32,
+                        BLACK,
+                    );
+                    draw_rectangle(0., 0., SCREEN_WIDTH as f32, p as f32, BLACK);
+                    draw_rectangle(
+                        0.,
+                        (SCREEN_HEIGHT - p) as f32,
+                        SCREEN_WIDTH as f32,
+                        p as f32,
                         BLACK,
                     );
                 }
@@ -1649,6 +1818,7 @@ async fn main() {
                                 deaths = 0;
                                 secret_count = levelset.secret_count;
                                 transition_ticks = 0;
+                                secret_transition = false;
                                 paused_frames = 0;
 
                                 if themes.len() == 0 {
@@ -1701,6 +1871,7 @@ async fn main() {
                                 deaths = 0;
                                 secret_count = levelset.secret_count;
                                 transition_ticks = 0;
+                                secret_transition = false;
                                 paused_frames = 0;
 
                                 if themes.len() == 0 {

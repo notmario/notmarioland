@@ -14,6 +14,10 @@ pub struct GlobalState {
     pub secrets: i32,
     pub jumps: i32,
     pub collected_jump_arrows: VecDeque<(usize, usize, usize)>,
+    pub binocularing: bool,
+    pub binocular_t: i32,
+    pub binocular_rx: i32,
+    pub binocular_ry: i32,
 }
 
 impl GlobalState {
@@ -25,6 +29,10 @@ impl GlobalState {
             secrets: 0,
             jumps: 0,
             collected_jump_arrows: VecDeque::new(),
+            binocularing: false,
+            binocular_t: 0,
+            binocular_rx: 0,
+            binocular_ry: 0,
         }
     }
 }
@@ -111,6 +119,8 @@ pub enum Tile {
 
     JumpArrow,
     JumpArrowOutline,
+
+    Binocular,
 }
 
 fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
@@ -238,6 +248,7 @@ impl Tile {
             "goal" => Self::Goal,
 
             "jumparrow" => Self::JumpArrow,
+            "binocular" => Self::Binocular,
 
             _ => Self::Empty,
         }
@@ -278,6 +289,8 @@ impl Tile {
 
             Self::JumpArrow => Some("assets/jumparrow.png"),
             Self::JumpArrowOutline => Some("assets/jumparrowoutline.png"),
+
+            Self::Binocular => Some("assets/binocular.png"),
 
             _ => None,
         }
@@ -672,6 +685,9 @@ pub fn check_door(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> Option<Tile> {
                 if let Tile::SecretDoor(_) = l[ty][tx] {
                     return Some(l[ty][tx]);
                 }
+                if l[ty][tx] == Tile::Binocular {
+                    return Some(l[ty][tx]);
+                }
             }
         }
     }
@@ -728,7 +744,7 @@ pub trait Object {
     fn should_clear(&self) -> bool {
         false
     }
-    fn spawn(&self, gs: &GlobalState) -> Option<Box<dyn Object>> {
+    fn spawn(&self, _gs: &GlobalState) -> Option<Box<dyn Object>> {
         None
     }
 }
@@ -790,6 +806,9 @@ impl Object for Player {
         tiles: &mut Vec<Vec<Vec<Tile>>>,
         global_state: &mut GlobalState,
     ) {
+        if global_state.binocularing {
+            return;
+        }
         // accelerate left and right
         self.freeze_timer -= 1;
         if self.freeze_timer <= 0 {
@@ -1035,6 +1054,9 @@ impl Object for Player {
         }
 
         if let TransitionAnimationType::Door(_) = tt {
+            draw_offset = (0, 96)
+        }
+        if gs.binocularing {
             draw_offset = (0, 96)
         }
         if let TransitionAnimationType::Death(frames) = tt {
@@ -1332,9 +1354,9 @@ impl Object for SawLauncher {
 
     fn draw(
         &self,
-        off_x: i32,
-        off_y: i32,
-        textures: &mut HashMap<String, Texture2D>,
+        _off_x: i32,
+        _off_y: i32,
+        _textures: &mut HashMap<String, Texture2D>,
         _gs: &GlobalState,
         _t: &TransitionAnimationType,
     ) {

@@ -11,29 +11,33 @@ X: spikes
 @: jumparrow
 c: cyankey
 d: door
+s: secretdoor
 ===
+door: secret2
 door: hub
 ===
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
-SSSSSSSS..............................##
-SSSSSSSS..............................##
-SSSSSSSS..............................##
-SSSSSSSS.@............................##
-SSSSSSSS...........SS.................##
-SSSSSSSS^^^........SS.................##
-SSSSSSSS.........@.SSXXXXXXXXXXXXX....##
-SSSSSSSS...........SSXXXXXXXXXXXXX....##
-SSSSSSSS......^^^SSSS..XX.............##
-SSSSSSSS.........SSSS..XX.............##
-SSSSSSSS.........SS...................##
-SSSSSSSS.........SS...................##
-SSSSSSSS.........SS...........XX......##
-SSS..............SS...........XX......##
-SSS..............SS.....XXX...XXXXXX..##
-SSS......@.@.....<......XXX...XXXXXX..##
-SSS..............<.......XXXXXXX..XXXXXX
-SSS..d.p.........<...c...XXXXXXX..XXXXXX
-SSSSSSSSSSSSS....<............XX......XX
-SSSSSSSSSSSSS....SSSSSSS......XX......XX
-SSSSSSSSSSSSS....SSSSSSS......XXXXXX..XX
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSS.........SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSS.........SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS##
+SSS.........SSSSS..............................##
+SSS......s..SSSSS..............................##
+SSS....SSSSSSSSSS..............................##
+SSS....SSSSSSSSSS.@............................##
+SSS....SSSSSSSSSS...........SS.................##
+SSS....SSSSSSSSSS^^^........SS.................##
+SSS....SSSSSSSSSS.........@.SSXXXXXXXXXXXXX....##
+SSS....SSSSSSSSSS...........SSXXXXXXXXXXXXX....##
+SSS....SSSSSSSSSS......^^^SSSS..XX.............##
+SSS....SSSSSSSSSS.........SSSS..XX.............##
+SSS....SSSSSSSSSS.........SS...................##
+SSS....SSSSSSSSSS.........SS...................##
+SSS....SSSSSSSSSS.........SS...........XX......##
+SSS.......................SS...........XX......##
+SSS.......................SS.....XXX...XXXXXX..##
+SSS...............@.@.....<......XXX...XXXXXX..##
+SSS.......................<.......XXXXXXX..XXXXXX
+SSS...........d.p.........<...c...XXXXXXX..XXXXXX
+SSSSSSSSSSSSSSSSSSSSSS....<............XX......XX
+SSSSSSSSSSSSSSSSSSSSSS....SSSSSSS......XX......XX
+SSSSSSSSSSSSSSSSSSSSSS....SSSSSSS......XXXXXX..XX
