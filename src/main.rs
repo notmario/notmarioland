@@ -1433,7 +1433,7 @@ async fn main() {
                 if global_state.binocular_t > 0 {
                     let p = ((1.
                         - (1. - (global_state.binocular_t as f32 / 30.).clamp(0., 1.)).powi(2))
-                        * 16.) as i32;
+                        * 18.) as i32;
                     draw_rectangle(0., 0., p as f32, SCREEN_HEIGHT as f32, BLACK);
                     draw_rectangle(
                         (SCREEN_WIDTH - p) as f32,
