@@ -1,0 +1,44 @@
+tempname002
+===
+#: wall
+S: wall4
+p: player
+.: empty
+e: exit_anchor
+X: spikes
+d: door
+@: jumparrow
+>: onewayright
+b: binocular
+c: cyankey
+^: onewayup
+===
+door: hub
+===
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+SS.............................................................................##
+SS.............................................................................##
+SS.....SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS^^^SS
+SS....SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS......SS
+SS....SSSSSSSSSSSSSSSSSSSSSS.........SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS.........SS
+SS....SSSSSSSSSSSSSSSS....................SSSSSSSSSSSSSSSSSSSSSSSSSS........^^^SS
+SS.....SSSS..........>.....................SSSSSSSSSSSSSSSSSSSSSSS.............SS
+SS.....SSSS..........>.......................SSSSSSSSSSSSSSSSSSSSS.............SS
+SS......SS...........>.......................SSSSSSSSSSSSSS.SSSSSS..........^^^SS
+SS......SS.....................................SSSSSSSSSSS...SSSS..............SS
+SS.......S......................................SSSSSSSSSS...SSSS..............SS
+SS.......S..................XX..................SSSSSSSSS.....SSS...........^^^SS
+SS.......>..................XX..................SSSSSSSS......SSS........c.....SS
+SS.......>...............XXXXXXXXXXXX............SSSSS..........>..............SS
+SS.......>...............XXXXXXXXXXXX............SSS............>.......SSSSSSSSS
+SS.........................XX..XX..XX..XX.........S.............>......SSSSSSSSSS
+SS.........................XX..XX..XX..XX.........S....................SSSSSSSSSS
+SS....@.@.....b............XX......XXXXXX.........>....................SSSSSSSSSS
+SS..........SSSSS..................XXXXXX.........>....................SSSSSSSSSS
+SS.....@....SSSSS............XX....XX.............>..................SSSSSSSSSSSS
+SS.d.p......SSSSS...........XXXXXXXXX.............>........SSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSS..SSSSS...........XXXXXXXXXXXX..........>........SSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSS..SSSSS..................XXXXX..........>........SSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSS..SSSSS..................XX.XX...................SSSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSS..SSSSS..................XX......................SSSSSSSSSSSSSSSSSSSSSS

@@ -10,42 +10,55 @@ X: spikes
 @: jumparrow
 C: cyanlock
 d: door
+b: binocular
+g: goal
+s: secretdoor
 ===
 left: another
+door: secret3
+door: third
 door: descent
 door: stacking
 ===
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS^^^^^^^...........SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS..................SSSSSSSSSS
-SSSSSSSSSSSSSSSSSS....................C.C...SS
-SSSSS.................................C.C.@.SS
-SSSSS.................................C.C...SS
-SSSSS......................SSSSSSSSSSSSSSSSSSS
-SSSSS..d...................SSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSS...........SSSSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSS..............SSSSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSS.s..............SSSSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSSS...............SSSSSSSSS
+SSSSSSSSSSSSSSSSSSSSS......................SSS
+SSSSSSSSSSSSSSSSSSSS...................g....SS
+SSSSSSSSSSSSSSSSSSS.......................SSSS
+SSSSSSSSSSSSSSSSSSS............SSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSS............SSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSSS^^^^^^......SSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSS.............SSSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSS..............SSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSSS..............SSSSSSSSSSSSSS
+SSSSSSSSSSSSSSSSS................SSSSSSSSSSSSS
+SSSSSSSSSSSS...C..................SSSSSSSSSSSS
+SSSSSSSSSSSS.@.C...................SSSSSSSSSSS
+SSSSSSSSSSSS...C....................SSSSSSSSSS
+SSSSSSSSSSSSSSSSSSS.................SSSSSSSSSS
+SSSSSSSSSSSSSSSSSSS..................SSSSSSSSS
+SSSSSSSSSSSSSSSSSS...................SSSSSSSSS
+SSSSSSSSSSSSSSS.......................C...SSSS
+SSSSSSSSSS............................C.@.SSSS
+SSSSSSSSS......................d......C...SSSS
+SSSSSSSSS..................SSSSSSSSSSSSSSSSSSS
+SSSSSSSSS..d...............SSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSS^^^^^^......SSSSSSSSSSSSSSSSSSS
 SSSSSSSSSSSSSSS.....................##########
-SSSSSSSSSSSSS.......................##########
-SSSSSSSSSSSSS.......................##########
-SSSSSSSSSSSSS.......................##########
+SSSSSSSSSSSSSSS.....................##########
+SSSSSSSSSSSSSS......................##########
+SSSSSSSSSSSSSS......................##########
 SSSSSSSSSSSSS.......................##########
 e..SSSSSSSSSS...................d...##########
 ...SSSSSSSSSS.........^^^^^###################
 ...........................###################
 ..............................C.....SSSSSSSSSS
-..p...........................C.....SSSSSSSSSS
+..p.....b.....................C.....SSSSSSSSSS
 SSSSS#######..................C..@..SSSSSSSSSS
-SSSSS#######..................C.....SSSSSSSSSS
+SSSSS#######SS................C.....SSSSSSSSSS
 SSSSS#######SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 SSSSS#######SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
