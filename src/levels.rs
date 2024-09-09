@@ -1,5 +1,7 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
-use crate::{texture_cache, Adjacencies, Theme, TransitionAnimationType};
+use crate::{
+    texture_cache, Adjacencies, Theme, TransitionAnimationType, SCREEN_HEIGHT, SCREEN_WIDTH,
+};
 use macroquad::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
@@ -1568,6 +1570,13 @@ impl LevelRaw {
     ) {
         let max_y = self.tiles[0].len() - 1;
         let max_x = self.tiles[0][0].len() - 1;
+        if off_x > SCREEN_WIDTH
+            || off_y > SCREEN_HEIGHT
+            || off_x + (max_x + 1) as i32 * TILE_PIXELS < 0
+            || off_y + (max_y + 1) as i32 * TILE_PIXELS < 0
+        {
+            return;
+        }
         for (la, layer) in self.tiles.iter().enumerate() {
             for (y, row) in layer.iter().enumerate() {
                 for (x, tile) in row.iter().enumerate() {

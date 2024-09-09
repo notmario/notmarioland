@@ -610,6 +610,7 @@ async fn main() {
         "assets/numbers.png",
         "assets/letters.png",
         "assets/binocular.png",
+        "assets/pausebg.png",
     ];
 
     for p in preload_textures {
@@ -1549,11 +1550,9 @@ async fn main() {
                         viewport: None,
                     };
 
-                    bg_material.set_uniform("iTime", global_timer * 2.);
-                    // material.set_uniform("mix_v", prog);
-                    gl_use_material(&bg_material);
                     set_camera(&cam_true);
-                    draw_rectangle(0., 0., SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32, WHITE);
+                    let t = texture_cache!(textures, "assets/pausebg.png");
+                    draw_texture(&t, 0., 0., WHITE);
                     gl_use_default_material();
 
                     set_camera(&threed_cam);
@@ -1570,7 +1569,7 @@ async fn main() {
                             z: 500.,
                         },
                         None,
-                        color_u8!(148, 78, 238, 255),
+                        color_u8!(148, 78, 237, 255),
                     );
 
                     draw_texture_ex(
@@ -1597,22 +1596,22 @@ async fn main() {
                             color_u8!(0, 0, 0, (128. * prog) as u8),
                         );
 
-                        if levelset.is_some() {
-                            let sy = levelset.as_ref().expect("is some").levels[*current_ind].tiles
-                                [0]
-                            .len();
-                            let sx = levelset.as_ref().expect("is some").levels[*current_ind].tiles
-                                [0][0]
-                                .len();
-                            levelset.as_ref().expect("is some").levels[*current_ind].minimap_draw(
-                                SCREEN_WIDTH / 2 - sx as i32,
-                                ((SCREEN_HEIGHT / 2) as f32 * (5. - 4. * prog)) as i32 - sy as i32,
-                                &levelset.as_ref().expect("is some").levels,
-                                &mut vec![*current_ind],
-                                *current_ind,
-                                &global_state.changed_tiles,
-                            );
-                        }
+                        // if levelset.is_some() {
+                        //     let sy = levelset.as_ref().expect("is some").levels[*current_ind].tiles
+                        //         [0]
+                        //     .len();
+                        //     let sx = levelset.as_ref().expect("is some").levels[*current_ind].tiles
+                        //         [0][0]
+                        //         .len();
+                        //     levelset.as_ref().expect("is some").levels[*current_ind].minimap_draw(
+                        //         SCREEN_WIDTH / 2 - sx as i32,
+                        //         ((SCREEN_HEIGHT / 2) as f32 * (5. - 4. * prog)) as i32 - sy as i32,
+                        //         &levelset.as_ref().expect("is some").levels,
+                        //         &mut vec![*current_ind],
+                        //         *current_ind,
+                        //         &global_state.changed_tiles,
+                        //     );
+                        // }
 
                         let t = texture_cache!(textures, "assets/pausetopbase.png");
                         draw_texture(&t, 0., (-96. * (1. - prog)) as i32 as f32, WHITE);
