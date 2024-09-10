@@ -23,7 +23,7 @@ mod macros;
 enum MenuState {
     Main(usize),
     LevelsetSelect(usize),
-    EditSelect(usize),
+    Settings(usize),
 }
 
 enum State {
@@ -362,37 +362,23 @@ fn draw_text_cool_c(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
         total_width += 12 - kern * 2;
     }
 
-    let mut back_off = 0;
-    for (i, ch) in t.chars().enumerate() {
+    draw_text_cool(tx, t, x - total_width / 2, y, c);
+}
+
+fn draw_text_cool_l(tx: &Texture2D, t: &str, x: i32, y: i32, c: Color) {
+    let mut total_width = 0;
+    for ch in t.chars() {
         let ind = ch as u32;
         let ind = if ind >= 32 && ind <= 127 {
             ind - 32
         } else {
             95
         };
-        let (sx, sy) = (ind % 16, ind / 16);
-
         let kern = FONT_KERN[ind as usize];
-        let yoff = FONT_Y_OFF[ind as usize];
-
-        draw_texture_ex(
-            &tx,
-            (x + i as i32 * 12 - kern - back_off - total_width / 2) as f32,
-            (y + yoff) as f32,
-            c,
-            DrawTextureParams {
-                source: Some(Rect {
-                    x: sx as f32 * 12.,
-                    y: sy as f32 * 16.,
-                    w: 12.,
-                    h: 16.,
-                }),
-                ..Default::default()
-            },
-        );
-
-        back_off += kern * 2;
+        total_width += 12 - kern * 2;
     }
+
+    draw_text_cool(tx, t, x - total_width, y, c);
 }
 
 fn draw_tip_text(tx: &Texture2D, t: &str, x: i32, y: i32, w: i32, slant_every: i32, c: Color) {
@@ -480,6 +466,70 @@ fn window_conf() -> Conf {
     }
 }
 
+struct Settings {
+    fullscreen: bool,
+    show_fps: bool,
+    show_input: bool,
+    show_stats: bool,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            fullscreen: false,
+            show_fps: false,
+            show_input: false,
+            show_stats: false,
+        }
+    }
+}
+impl Settings {
+    fn load(path: &str) -> Self {
+        let s = std::fs::read_to_string(path);
+        if s.is_err() {
+            // fuck
+            let settings = Settings::default();
+            Settings::save(path, &settings);
+            return settings;
+        }
+        let s = s.expect("is not err");
+        let mut new_settings = Settings::default();
+
+        for l in s.lines() {
+            if l.split(": ").count() < 2 {
+                continue;
+            }
+            let mut parts = l.split(": ");
+            let key = parts.next().expect("length >= 2");
+            let val = parts.next().expect("length >= 2");
+            match key {
+                "fullscreen" => new_settings.fullscreen = val.trim() == "true",
+                "show_fps" => new_settings.show_fps = val.trim() == "true",
+                "show_input" => new_settings.show_input = val.trim() == "true",
+                "show_stats" => new_settings.show_stats = val.trim() == "true",
+                _ => (),
+            }
+        }
+
+        new_settings
+    }
+    fn save(path: &str, s: &Settings) {
+        let mut output_str = "".to_string();
+
+        output_str.push_str(&format!("fullscreen: {}\n", s.fullscreen));
+        output_str.push_str(&format!("show_fps: {}\n", s.show_fps));
+        output_str.push_str(&format!("show_input: {}\n", s.show_input));
+        output_str.push_str(&format!("show_stats: {}\n", s.show_stats));
+
+        let _ = std::fs::write(path, &output_str);
+    }
+    fn apply(&self) {
+        set_fullscreen(self.fullscreen);
+        if !self.fullscreen {
+            request_new_screen_size((SCREEN_WIDTH * 2) as f32, (SCREEN_HEIGHT * 2) as f32)
+        }
+    }
+}
+
 const PAUSE_BG_FRAGMENT_SHADER: &'static str = include_str!("pause_bg.frag");
 const DEFAULT_VERTEX_SHADER: &'static str = "#version 100
 precision lowp float;
@@ -500,6 +550,8 @@ void main() {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let mut settings = Settings::load("settings");
+    settings.apply();
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
 
     let fs = PAUSE_BG_FRAGMENT_SHADER.to_string();
@@ -611,6 +663,7 @@ async fn main() {
         "assets/letters.png",
         "assets/binocular.png",
         "assets/pausebg.png",
+        "assets/buttondisplay.png",
     ];
 
     for p in preload_textures {
@@ -672,7 +725,7 @@ async fn main() {
                     MenuState::Main(ind) => {
                         draw_text_cool(&font, "main menu (temporary)", 4, 2, WHITE);
 
-                        for (i, o) in ["play", "quit"].iter().enumerate() {
+                        for (i, o) in ["play", "settings", "quit"].iter().enumerate() {
                             draw_text_cool(
                                 &font,
                                 &format!("{}{}", if *ind == i { "> " } else { "    " }, o),
@@ -692,8 +745,8 @@ async fn main() {
                         if is_key_pressed(KeyCode::Z) {
                             match ind {
                                 0 => *menu_state = MenuState::LevelsetSelect(0),
-                                // 1 => *menu_state = MenuState::EditSelect(0),
-                                1 => panic!("user closed game"),
+                                1 => *menu_state = MenuState::Settings(0),
+                                2 => panic!("user closed game"),
                                 _ => (),
                             }
                         }
@@ -768,38 +821,60 @@ async fn main() {
                             *menu_state = MenuState::Main(0);
                         }
                     }
-                    MenuState::EditSelect(ind) => {
-                        draw_text("select levelset to edit", 4., 12., 16., WHITE);
+                    MenuState::Settings(ind) => {
+                        draw_text_cool(&font, "settings", 4, 2, WHITE);
+                        let m = |b| if b { "yes" } else { "no" };
+                        let things = [
+                            ("fullscreen", m(settings.fullscreen)),
+                            ("show fps", m(settings.show_fps)),
+                            ("show input", m(settings.show_input)),
+                            ("show stats", m(settings.show_stats)),
+                            ("back", ""),
+                        ];
 
-                        for (i, l) in levelsets
-                            .iter()
-                            .chain(["new".into(), "back".into()].iter())
-                            .enumerate()
-                        {
-                            draw_text(
-                                &format!("{}{}", if *ind == i { "> " } else { "  " }, l),
-                                4.,
-                                28. + 16. * i as f32,
-                                16.,
+                        for (i, (t, v)) in things.iter().enumerate() {
+                            draw_text_cool(
+                                &font,
+                                &format!(
+                                    "{}{}{}{}",
+                                    if *ind == i { "> " } else { "    " },
+                                    t,
+                                    if *v != "" { ": " } else { "" },
+                                    v
+                                ),
+                                4,
+                                22 + 20 * i as i32,
                                 WHITE,
                             );
                         }
-
-                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() + 1 {
+                        if is_key_pressed(KeyCode::Down) && *ind < things.len() - 1 {
                             *ind += 1
                         }
                         if is_key_pressed(KeyCode::Up) && *ind > 0 {
                             *ind -= 1
                         }
-
                         if is_key_pressed(KeyCode::Z) {
-                            if *ind == levelsets.len() {
-                            } else if *ind == levelsets.len() + 1 {
-                                *menu_state = MenuState::Main(0);
-                            } else {
+                            match things[*ind].0 {
+                                "fullscreen" => {
+                                    settings.fullscreen = !settings.fullscreen;
+                                    Settings::save("settings", &settings);
+                                    settings.apply();
+                                }
+                                "show fps" => {
+                                    settings.show_fps = !settings.show_fps;
+                                    Settings::save("settings", &settings);
+                                }
+                                "show input" => {
+                                    settings.show_input = !settings.show_input;
+                                    Settings::save("settings", &settings);
+                                }
+                                "show stats" => {
+                                    settings.show_stats = !settings.show_stats;
+                                    Settings::save("settings", &settings);
+                                }
+                                "back" => *menu_state = MenuState::Main(0),
+                                _ => (),
                             }
-                        } else if is_key_pressed(KeyCode::Escape) {
-                            *menu_state = MenuState::Main(0)
                         }
                     }
                 }
@@ -1469,35 +1544,66 @@ async fn main() {
                     WHITE,
                 );
 
-                // let vel = level.player_vel();
-                // let g = level.player_obj().air_frames;
-                // draw_text(
-                //     &format!("h {:0>3}", vel.0.abs() / 16,),
-                //     2.,
-                //     SCREEN_HEIGHT as f32 - 4.,
-                //     16.,
-                //     if vel.0.abs() >= 4096 { RED } else { WHITE },
-                // );
-                // draw_text(
-                //     &format!("v {:0>3}", vel.1.abs() / 16,),
-                //     44.,
-                //     SCREEN_HEIGHT as f32 - 4.,
-                //     16.,
-                //     if vel.1.abs() >= 4096 { RED } else { WHITE },
-                // );
+                if settings.show_stats {
+                    let vel = level.player_vel();
+                    // let g = level.player_obj().air_frames;
+                    draw_text_cool(
+                        &font,
+                        &format!("h{:0>3}", vel.0.abs() / 16,),
+                        2,
+                        SCREEN_HEIGHT - 17,
+                        if vel.0.abs() >= 4096 { RED } else { WHITE },
+                    );
+                    draw_text_cool(
+                        &font,
+                        &format!("v{:0>3}", vel.1.abs() / 16,),
+                        50,
+                        SCREEN_HEIGHT - 17,
+                        if vel.1.abs() >= 4096 { RED } else { WHITE },
+                    );
 
-                // let t = format!(
-                //     "{}/{} | {:0>2}:{:0>2} | {} death{}",
-                //     global_state.secrets,
-                //     secret_count,
-                //     global_state.timer / 3600,
-                //     (global_state.timer / 60) % 60,
-                //     deaths,
-                //     if deaths == 1 { "" } else { "s" }
-                // );
-                // let x = SCREEN_WIDTH - t.len() as i32 * 7 - 2;
+                    // this will break when stuff happens
+                    let t = format!(
+                        "{}/{}|{:0>2}:{:0>2}|Æ{}",
+                        global_state.secrets,
+                        secret_count,
+                        global_state.timer / 3600,
+                        (global_state.timer / 60) % 60,
+                        deaths,
+                    );
+                    draw_text_cool_l(&font, &t, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 17, WHITE);
+                }
 
-                // draw_text(&t, x as f32, SCREEN_HEIGHT as f32 - 4., 16., WHITE);
+                if settings.show_input {
+                    let t = texture!(&mut textures, "assets/buttondisplay.png");
+                    let buttons = [
+                        ((0, 0), is_key_down(KeyCode::Escape)),
+                        ((16, 0), is_key_down(KeyCode::Up)),
+                        ((0, 16), is_key_down(KeyCode::Left)),
+                        ((16, 16), is_key_down(KeyCode::Down)),
+                        ((32, 16), is_key_down(KeyCode::Right)),
+                        ((48, 16), is_key_down(KeyCode::Z)),
+                        ((48, 0), is_key_down(KeyCode::X)),
+                    ];
+                    for ((ox, oy), down) in buttons.iter() {
+                        let n_oy = if *down { *oy + 32 } else { *oy };
+                        draw_texture_ex(
+                            &t,
+                            (2 + ox) as f32,
+                            (SCREEN_HEIGHT - 51 + oy) as f32,
+                            WHITE,
+                            DrawTextureParams {
+                                source: Some(Rect {
+                                    x: *ox as f32,
+                                    y: n_oy as f32,
+                                    w: 16.,
+                                    h: 16.,
+                                }),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
 
                 let mut key_pos = 2.;
                 for (count, colour) in global_state
@@ -1898,6 +2004,16 @@ async fn main() {
                 }
             } // _ => (),
             State::Edit { levelset, level } => {}
+        }
+
+        if settings.show_fps {
+            draw_text_cool(
+                &font,
+                format!("{} fps", get_fps()).as_str(),
+                0,
+                0,
+                color_u8!(0, 255, 0, 255),
+            )
         }
 
         next_frame().await;
