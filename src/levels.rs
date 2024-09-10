@@ -353,22 +353,56 @@ impl Tile {
                     draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY)
                 }
             }
-            Self::OneWayLeft => draw_rect_i32(x, y, TILE_PIXELS / 8, TILE_PIXELS, BLACK),
-            Self::OneWayUp => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS / 8, BLACK),
-            Self::OneWayRight => draw_rect_i32(
-                x + TILE_PIXELS * 7 / 8,
-                y,
-                TILE_PIXELS / 8,
-                TILE_PIXELS,
-                BLACK,
-            ),
-            Self::OneWayDown => draw_rect_i32(
-                x,
-                y + TILE_PIXELS * 7 / 8,
-                TILE_PIXELS,
-                TILE_PIXELS / 8,
-                BLACK,
-            ),
+            Self::OneWayLeft | Self::OneWayRight | Self::OneWayUp | Self::OneWayDown => {
+                let te = &theme.oneway;
+                if te.is_some() {
+                    let off = match self {
+                        Self::OneWayLeft => (0, 16),
+                        Self::OneWayRight => (16, 16),
+                        Self::OneWayUp => (0, 0),
+                        Self::OneWayDown => (16, 0),
+                        _ => unreachable!(),
+                    };
+                    let t = texture_cache!(textures, te.as_ref().expect("it exists"));
+                    draw_texture_ex(
+                        &t,
+                        x as f32,
+                        y as f32,
+                        WHITE,
+                        DrawTextureParams {
+                            source: Some(Rect {
+                                x: off.0 as f32,
+                                y: off.1 as f32,
+                                w: 16.,
+                                h: 16.,
+                            }),
+                            ..Default::default()
+                        },
+                    )
+                } else {
+                    match self {
+                        Self::OneWayLeft => {
+                            draw_rect_i32(x, y, TILE_PIXELS / 8, TILE_PIXELS, BLACK)
+                        }
+                        Self::OneWayUp => draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS / 8, BLACK),
+                        Self::OneWayRight => draw_rect_i32(
+                            x + TILE_PIXELS * 7 / 8,
+                            y,
+                            TILE_PIXELS / 8,
+                            TILE_PIXELS,
+                            BLACK,
+                        ),
+                        Self::OneWayDown => draw_rect_i32(
+                            x,
+                            y + TILE_PIXELS * 7 / 8,
+                            TILE_PIXELS,
+                            TILE_PIXELS / 8,
+                            BLACK,
+                        ),
+                        _ => unreachable!(),
+                    }
+                }
+            }
             _ => {
                 let t = self.sprite();
                 if t.is_some() {

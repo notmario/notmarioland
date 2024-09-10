@@ -70,6 +70,8 @@ struct Theme {
     back_wall_2: Option<String>,
     back_wall_3: Option<String>,
     back_wall_4: Option<String>,
+
+    oneway: Option<String>,
 }
 
 impl Theme {
@@ -119,6 +121,8 @@ impl Theme {
                         "back_wall_3" => theme.back_wall_3 = Some(b.trim().into()),
                         "back_wall_4" => theme.back_wall_4 = Some(b.trim().into()),
 
+                        "oneway" => theme.oneway = Some(b.trim().into()),
+
                         _ => (),
                     }
                 }
@@ -156,6 +160,10 @@ impl Theme {
         }
         if self.back_wall_4.is_some() {
             texture!(textures, self.back_wall_4.as_ref().expect("is some"));
+        }
+
+        if self.oneway.is_some() {
+            texture!(textures, self.oneway.as_ref().expect("is some"));
         }
     }
 }

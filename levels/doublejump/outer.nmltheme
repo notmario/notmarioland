@@ -1,0 +1,36 @@
+wall_1: levels/doublejump/assets/tileset.png
+wall_4: levels/doublejump/assets/icetileset.png
+oneway: levels/doublejump/assets/oneway.png
+===
+bglayer
+levels/doublejump/assets/nightbg.png
+0
+0
+0
+0
+0
+0
+1
+1
+===
+bglayer
+levels/doublejump/assets/snowsparse.png
+0
+0
+0
+0
+-512
+128
+163840
+94208
+===
+bglayer
+levels/doublejump/assets/castleouterwall.png
+-320
+-184
+16
+16
+0
+0
+1
+1
