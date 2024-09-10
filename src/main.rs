@@ -622,6 +622,16 @@ async fn main() {
         })
         .collect();
 
+    let levelset_has_image: HashMap<&String, bool> = levelsets
+        .iter()
+        .map(|l| {
+            (
+                l,
+                std::fs::metadata(&format!("levels/{}/icon.png", l)).is_ok(),
+            )
+        })
+        .collect();
+
     let preload_textures = [
         "assets/player.png",
         "assets/redkey.png",
@@ -672,6 +682,15 @@ async fn main() {
         "assets/binocular.png",
         "assets/pausebg.png",
         "assets/buttondisplay.png",
+        "assets/logo.png",
+        "assets/menuplay.png",
+        "assets/menuplaydull.png",
+        "assets/menusettings.png",
+        "assets/menusettingsdull.png",
+        "assets/menuquit.png",
+        "assets/menuquitdull.png",
+        "assets/back.png",
+        "assets/levelselector.png",
     ];
 
     for p in preload_textures {
@@ -715,7 +734,7 @@ async fn main() {
     let mut next_ind: Option<usize> = None;
     let mut levelset_ind = 0;
 
-    let mut global_timer = 0.;
+    let mut global_timer: f32 = 0.;
 
     let font = texture_cache!(textures, "assets/letters.png");
 
@@ -724,6 +743,9 @@ async fn main() {
 
         set_default_camera();
 
+        let delta = get_frame_time();
+        global_timer += delta;
+
         match &mut state {
             State::Menu(menu_state) => {
                 clear_background(BLACK);
@@ -731,17 +753,72 @@ async fn main() {
                 set_camera(&cam_true);
                 match menu_state {
                     MenuState::Main(ind) => {
-                        draw_text_cool(&font, "main menu (temporary)", 4, 2, WHITE);
+                        let t = texture_cache!(&mut textures, "assets/pausebg.png");
+                        let p = -((global_timer * 4.) as i32 % 8) as f32;
+                        draw_texture(&t, p, p, WHITE);
+                        // draw_text_cool(&font, "main menu (temporary)", 4, 2, WHITE);
 
-                        for (i, o) in ["play", "settings", "quit"].iter().enumerate() {
-                            draw_text_cool(
-                                &font,
-                                &format!("{}{}", if *ind == i { "> " } else { "    " }, o),
-                                4,
-                                22 + 20 * i as i32,
-                                WHITE,
-                            );
-                        }
+                        let t = texture_cache!(&mut textures, "assets/logo.png");
+                        draw_texture(
+                            &t,
+                            32. + ((global_timer / 4.).sin() * 16.) as i32 as f32,
+                            104. + ((global_timer / 7.).cos() * 11.) as i32 as f32,
+                            WHITE,
+                        );
+                        let t = texture_cache!(
+                            textures,
+                            if *ind == 0 {
+                                "assets/menuplay.png"
+                            } else {
+                                "assets/menuplaydull.png"
+                            }
+                        );
+                        draw_texture(
+                            &t,
+                            320. + ((global_timer / 5.).cos() * 9.) as i32 as f32,
+                            ((global_timer / 11.).sin() * 4.) as i32 as f32,
+                            WHITE,
+                        );
+
+                        let t = texture_cache!(
+                            textures,
+                            if *ind == 1 {
+                                "assets/menusettings.png"
+                            } else {
+                                "assets/menusettingsdull.png"
+                            }
+                        );
+                        draw_texture(
+                            &t,
+                            384. + ((global_timer / 18.).sin() * 13.) as i32 as f32,
+                            128. + ((global_timer / 3.).cos() * 6.) as i32 as f32,
+                            WHITE,
+                        );
+
+                        let t = texture_cache!(
+                            textures,
+                            if *ind == 2 {
+                                "assets/menuquit.png"
+                            } else {
+                                "assets/menuquitdull.png"
+                            }
+                        );
+                        draw_texture(
+                            &t,
+                            448. + ((global_timer / 2.).cos() * 5.) as i32 as f32,
+                            256. + ((global_timer / 6.).cos() * 4.) as i32 as f32,
+                            WHITE,
+                        );
+
+                        // for (i, o) in ["play", "settings", "quit"].iter().enumerate() {
+                        //     draw_text_cool(
+                        //         &font,
+                        //         &format!("{}{}", if *ind == i { "> " } else { "    " }, o),
+                        //         4,
+                        //         22 + 20 * i as i32,
+                        //         WHITE,
+                        //     );
+                        // }
 
                         if is_key_pressed(KeyCode::Down) && *ind < 2 {
                             *ind += 1
@@ -760,22 +837,62 @@ async fn main() {
                         }
                     }
                     MenuState::LevelsetSelect(ind) => {
-                        draw_text_cool(&font, "select levelset", 4, 2, WHITE);
+                        let t = texture_cache!(&mut textures, "assets/pausebg.png");
+                        let p = -((global_timer * 4.) as i32 % 8) as f32;
+                        draw_texture(&t, p, p, WHITE);
 
-                        for (i, l) in levelsets.iter().chain(["back".into()].iter()).enumerate() {
-                            draw_text_cool(
-                                &font,
-                                &format!("{}{}", if *ind == i { "> " } else { "    " }, l),
-                                4,
-                                22 + 16 * i as i32,
-                                WHITE,
-                            );
+                        draw_text_cool_c(&font, "select level", SCREEN_WIDTH / 2, 48, WHITE);
+
+                        let base_levelsets = ["tutorial".to_string(), "doublejump".to_string()];
+
+                        for (i, l) in base_levelsets
+                            .iter()
+                            .chain(levelsets.iter().filter(|l| !base_levelsets.contains(l)))
+                            .chain(["back".into()].iter())
+                            .enumerate()
+                        {
+                            // draw_text_cool(
+                            //     &font,
+                            //     &format!("{}{}", if *ind == i { "> " } else { "    " }, l),
+                            //     4,
+                            //     22 + 16 * i as i32,
+                            //     WHITE,
+                            // );
+                            if l == "back" {
+                                let t = texture!(&mut textures, "assets/back.png");
+                                draw_texture(
+                                    &t,
+                                    (SCREEN_WIDTH / 2 - 64 - 160 * (*ind as i32 - i as i32)) as f32,
+                                    (128 + 16 * (i as i32 - *ind as i32)) as f32,
+                                    WHITE,
+                                );
+                                continue;
+                            }
+                            if levelset_has_image[l] {
+                                let t = texture!(&mut textures, &format!("levels/{}/icon.png", l));
+                                draw_texture(
+                                    &t,
+                                    (SCREEN_WIDTH / 2 - 64 - 160 * (*ind as i32 - i as i32)) as f32,
+                                    (128 + 16 * (i as i32 - *ind as i32)) as f32,
+                                    WHITE,
+                                )
+                            } else {
+                                draw_text_cool_c(
+                                    &font,
+                                    &l,
+                                    SCREEN_WIDTH / 2 - 160 * (*ind as i32 - i as i32),
+                                    128 + 16 * (i as i32 - *ind as i32) + 40,
+                                    WHITE,
+                                );
+                            }
                         }
+                        let t = texture!(&mut textures, "assets/levelselector.png");
+                        draw_texture(&t, (SCREEN_WIDTH / 2 - 64 - 16) as f32, 112., WHITE);
 
-                        if is_key_pressed(KeyCode::Down) && *ind < levelsets.len() {
+                        if is_key_pressed(KeyCode::Right) && *ind < levelsets.len() {
                             *ind += 1
                         }
-                        if is_key_pressed(KeyCode::Up) && *ind > 0 {
+                        if is_key_pressed(KeyCode::Left) && *ind > 0 {
                             *ind -= 1
                         }
 
@@ -783,8 +900,12 @@ async fn main() {
                             if *ind == levelsets.len() {
                                 *menu_state = MenuState::Main(0);
                             } else {
-                                let levelset =
-                                    levels::load_levelset(&format!("levels/{}", levelsets[*ind]));
+                                let l = base_levelsets
+                                    .iter()
+                                    .chain(levelsets.iter().filter(|l| !base_levelsets.contains(l)))
+                                    .nth(*ind)
+                                    .expect("fuck you");
+                                let levelset = levels::load_levelset(&format!("levels/{}", l));
                                 levelset_ind = *ind;
                                 let current_ind = 0; // we assume the first level is index 0
 
@@ -830,6 +951,10 @@ async fn main() {
                         }
                     }
                     MenuState::Settings(ind) => {
+                        let t = texture_cache!(&mut textures, "assets/pausebg.png");
+                        let p = -((global_timer * 4.) as i32 % 8) as f32;
+                        draw_texture(&t, p, p, WHITE);
+
                         draw_text_cool(&font, "settings", 4, 2, WHITE);
                         let m = |b| if b { "yes" } else { "no" };
                         let things = [
@@ -880,7 +1005,7 @@ async fn main() {
                                     settings.show_stats = !settings.show_stats;
                                     Settings::save("settings", &settings);
                                 }
-                                "back" => *menu_state = MenuState::Main(0),
+                                "back" => *menu_state = MenuState::Main(1),
                                 _ => (),
                             }
                         }
@@ -905,7 +1030,6 @@ async fn main() {
                 }
                 if !paused && !*won {
                     let delta = get_frame_time();
-                    global_timer += delta;
                     remaining_timer += delta;
 
                     for (keycode, is_pressed) in keys_pressed.iter_mut() {
