@@ -1,4 +1,5 @@
 wall_1: levels/tutorial/assets/tileset.png
+oneway: levels/tutorial/assets/oneway.png
 ===
 bglayer
 levels/tutorial/assets/bg.png
