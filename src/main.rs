@@ -906,7 +906,10 @@ async fn main() {
                                     .nth(*ind)
                                     .expect("fuck you");
                                 let levelset = levels::load_levelset(&format!("levels/{}", l));
-                                levelset_ind = *ind;
+                                levelset_ind = levelsets
+                                    .iter()
+                                    .position(|k| k == l)
+                                    .expect("should be findable");
                                 let current_ind = 0; // we assume the first level is index 0
 
                                 let level_raw = levelset.levels[current_ind].clone();
