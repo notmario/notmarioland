@@ -2039,7 +2039,7 @@ async fn main() {
                         }
                     );
                     draw_texture(&t, (320. * (1. - prog)) as i32 as f32, 0., WHITE);
-                    if is_key_pressed(KeyCode::Z) {
+                    if is_key_pressed(KeyCode::Z) && paused_frames > 5 {
                         match paused_selection {
                             0 => {
                                 let levelset = levels::load_levelset(&format!(
