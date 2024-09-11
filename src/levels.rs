@@ -31,6 +31,8 @@ pub struct Modifiers {
     pub invisiblelevel: bool,
     pub invisibleplayer: bool,
     pub nowalljump: bool,
+    pub alwaysjumping: bool,
+    pub uncapped_speed: bool,
 }
 
 impl Default for Modifiers {
@@ -41,6 +43,8 @@ impl Default for Modifiers {
             invisiblelevel: false,
             invisibleplayer: false,
             nowalljump: false,
+            alwaysjumping: false,
+            uncapped_speed: false,
         }
     }
 }
@@ -150,6 +154,7 @@ pub enum Tile {
     Binocular,
 
     IceCube,
+    PlayerVanish,
 }
 
 fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
@@ -277,8 +282,11 @@ impl Tile {
             "goal" => Self::Goal,
 
             "jumparrow" => Self::JumpArrow,
+
             "binocular" => Self::Binocular,
+
             "icecube" => Self::IceCube,
+            "playervanish" => Self::PlayerVanish,
 
             _ => Self::Empty,
         }
@@ -321,7 +329,9 @@ impl Tile {
             Self::JumpArrowOutline => Some("assets/jumparrowoutline.png"),
 
             Self::Binocular => Some("assets/binocular.png"),
+
             Self::IceCube => Some("assets/icecube.png"),
+            Self::PlayerVanish => Some("assets/playervanish.png"),
 
             _ => None,
         }
@@ -651,6 +661,10 @@ pub fn collect_keys(
                         gs.modifiers.superslippery = true;
                         l[ty][tx] = Tile::Empty;
                     }
+                    Tile::PlayerVanish => {
+                        gs.modifiers.invisibleplayer = true;
+                        l[ty][tx] = Tile::Empty;
+                    }
 
                     _ => (),
                 }
@@ -942,8 +956,10 @@ impl Object for Player {
         }
         // cap vx and vy at one tile per game step
         // in practice this will never be hit
-        self.vx = self.vx.clamp(-TILE_SIZE, TILE_SIZE);
-        self.vy = self.vy.clamp(-TILE_SIZE, TILE_SIZE);
+        if !global_state.modifiers.uncapped_speed {
+            self.vx = self.vx.clamp(-TILE_SIZE, TILE_SIZE);
+            self.vy = self.vy.clamp(-TILE_SIZE, TILE_SIZE);
+        }
         if self.grounded {
             self.vy = self.vy.min(TILE_SIZE / 6)
         }
@@ -965,9 +981,32 @@ impl Object for Player {
         } else {
             self.vx
         };
-        // now we are aligned at tile boundary, do remaining movement,
-        // then step back if we are then colliding
-        self.x += remaining_movement;
+
+        let mod_movement = remaining_movement % TILE_SIZE;
+        let mut temp_movement = remaining_movement;
+        if mod_movement != temp_movement {
+            loop {
+                temp_movement -= TILE_SIZE * self.vx.signum();
+                self.x += TILE_SIZE * self.vx.signum();
+                if self.vx == 0 || temp_movement == mod_movement {
+                    break;
+                }
+
+                if check_tilemap_collision(
+                    before_aabb,
+                    self.get_aabb(),
+                    tiles,
+                    Direction::h_vel(self.vx),
+                    &global_state,
+                ) {
+                    self.x -= TILE_SIZE * self.vx.signum();
+                    // continue;
+                    break;
+                }
+            }
+        } // now we are aligned at tile boundary, do remaining movement,
+          // then step back if we are then colliding
+        self.x += temp_movement;
         if check_tilemap_collision(
             before_aabb,
             self.get_aabb(),

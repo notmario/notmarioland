@@ -692,6 +692,7 @@ async fn main() {
         "assets/back.png",
         "assets/levelselector.png",
         "assets/icecube.png",
+        "assets/playervanish.png",
     ];
 
     for p in preload_textures {
@@ -1038,6 +1039,9 @@ async fn main() {
 
                     for (keycode, is_pressed) in keys_pressed.iter_mut() {
                         if is_key_pressed(*keycode) {
+                            *is_pressed = true
+                        }
+                        if *keycode == KeyCode::Z && global_state.modifiers.alwaysjumping {
                             *is_pressed = true
                         }
                     }
