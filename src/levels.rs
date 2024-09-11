@@ -20,6 +20,21 @@ pub struct GlobalState {
     pub binocular_t: i32,
     pub binocular_rx: i32,
     pub binocular_ry: i32,
+    pub modifiers: Modifiers,
+    pub default_modifiers: Modifiers,
+}
+
+#[derive(Copy, Clone)]
+pub struct Modifiers {
+    pub superslippery: bool,
+}
+
+impl Default for Modifiers {
+    fn default() -> Self {
+        Modifiers {
+            superslippery: false,
+        }
+    }
 }
 
 impl GlobalState {
@@ -35,6 +50,8 @@ impl GlobalState {
             binocular_t: 0,
             binocular_rx: 0,
             binocular_ry: 0,
+            modifiers: Default::default(),
+            default_modifiers: Default::default(),
         }
     }
 }
@@ -123,6 +140,8 @@ pub enum Tile {
     JumpArrowOutline,
 
     Binocular,
+
+    IceCube,
 }
 
 fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
@@ -251,6 +270,7 @@ impl Tile {
 
             "jumparrow" => Self::JumpArrow,
             "binocular" => Self::Binocular,
+            "icecube" => Self::IceCube,
 
             _ => Self::Empty,
         }
@@ -293,6 +313,7 @@ impl Tile {
             Self::JumpArrowOutline => Some("assets/jumparrowoutline.png"),
 
             Self::Binocular => Some("assets/binocular.png"),
+            Self::IceCube => Some("assets/icecube.png"),
 
             _ => None,
         }
@@ -440,14 +461,14 @@ impl AABB {
             h: self.h - amt * 2,
         }
     }
-    // fn shift_by(&self, off: (i32, i32)) -> Self {
-    //     AABB {
-    //         x: self.x + off.0,
-    //         y: self.y + off.1,
-    //         w: self.w,
-    //         h: self.h,
-    //     }
-    // }
+    fn shift_by(&self, off: (i32, i32)) -> Self {
+        AABB {
+            x: self.x + off.0,
+            y: self.y + off.1,
+            w: self.w,
+            h: self.h,
+        }
+    }
 }
 
 fn check_tilemap_condition<F>(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>, condition: F) -> bool
@@ -617,6 +638,10 @@ pub fn collect_keys(
                         gs.jumps += 1;
                         l[ty][tx] = Tile::JumpArrowOutline;
                         gs.collected_jump_arrows.push_back((li, ty, tx));
+                    }
+                    Tile::IceCube => {
+                        gs.modifiers.superslippery = true;
+                        l[ty][tx] = Tile::Empty;
                     }
 
                     _ => (),
@@ -847,13 +872,20 @@ impl Object for Player {
         }
         // accelerate left and right
         self.freeze_timer -= 1;
+        let unslippy = check_tilemap_wallslideable(self.get_aabb().shift_by((0, 4)), &tiles);
         if self.freeze_timer <= 0 {
             if is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) {
                 if self.wall_sliding > 0 {
                     self.wall_sliding = 0
                 }
                 if self.vx >= -MAX_PLAYER_SPEED {
-                    self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL);
+                    if global_state.modifiers.superslippery {
+                        self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL / 8);
+                    } else if unslippy {
+                        self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL);
+                    } else {
+                        self.vx = (-MAX_PLAYER_SPEED).max(self.vx - PLAYER_ACCEL / 2);
+                    }
                 } else {
                     self.vx += TILE_SIZE / 128;
                 }
@@ -862,7 +894,13 @@ impl Object for Player {
                     self.wall_sliding = 0
                 }
                 if self.vx <= MAX_PLAYER_SPEED {
-                    self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL);
+                    if global_state.modifiers.superslippery {
+                        self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL / 8);
+                    } else if unslippy {
+                        self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL);
+                    } else {
+                        self.vx = (MAX_PLAYER_SPEED).min(self.vx + PLAYER_ACCEL / 2);
+                    }
                 } else {
                     self.vx -= TILE_SIZE / 128;
                 }
@@ -870,8 +908,14 @@ impl Object for Player {
         }
 
         if !is_key_down(KeyCode::Left) && !is_key_down(KeyCode::Right) && self.freeze_timer <= 0 {
-            self.vx *= 11;
-            self.vx /= 16;
+            if global_state.modifiers.superslippery {
+            } else if !unslippy {
+                self.vx *= 15;
+                self.vx /= 16;
+            } else {
+                self.vx *= 11;
+                self.vx /= 16;
+            }
             self.anim_timer = 0;
             if self.wall_sliding != 0 {
                 self.vx = self.wall_sliding;

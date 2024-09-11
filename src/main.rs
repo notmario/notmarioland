@@ -691,6 +691,7 @@ async fn main() {
         "assets/menuquitdull.png",
         "assets/back.png",
         "assets/levelselector.png",
+        "assets/icecube.png",
     ];
 
     for p in preload_textures {
@@ -1114,6 +1115,7 @@ async fn main() {
 
                         global_state.jumps = 0;
                         global_state.collected_jump_arrows = std::collections::VecDeque::new();
+                        global_state.modifiers = global_state.default_modifiers;
                     }
 
                     if remaining_timer * 60. >= 1. && transition_ticks >= 0 {
@@ -1152,6 +1154,7 @@ async fn main() {
                                 global_state.jumps = 0;
                                 global_state.collected_jump_arrows =
                                     std::collections::VecDeque::new();
+                                global_state.modifiers = global_state.default_modifiers;
                                 let new_off_y = level
                                     .side_offsets
                                     .right
@@ -1201,6 +1204,7 @@ async fn main() {
                                 global_state.jumps = 0;
                                 global_state.collected_jump_arrows =
                                     std::collections::VecDeque::new();
+                                global_state.modifiers = global_state.default_modifiers;
                                 let new_off_y =
                                     level.side_offsets.left.expect("should have an exit anchor");
 
@@ -1241,6 +1245,7 @@ async fn main() {
                                 global_state.jumps = 0;
                                 global_state.collected_jump_arrows =
                                     std::collections::VecDeque::new();
+                                global_state.modifiers = global_state.default_modifiers;
                                 let new_off_x =
                                     level.side_offsets.down.expect("should have an exit anchor");
                                 let new_off_y = level.dimensions().1 * TILE_SIZE;
@@ -1284,6 +1289,7 @@ async fn main() {
                                 global_state.jumps = 0;
                                 global_state.collected_jump_arrows =
                                     std::collections::VecDeque::new();
+                                global_state.modifiers = global_state.default_modifiers;
                                 let new_off_x =
                                     level.side_offsets.up.expect("should have an exit anchor");
 
