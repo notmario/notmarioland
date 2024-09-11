@@ -1034,7 +1034,7 @@ async fn main() {
                 }
                 if !paused && !*won {
                     let delta = get_frame_time();
-                    remaining_timer += delta;
+                    remaining_timer += delta * global_state.modifiers.game_speed;
 
                     for (keycode, is_pressed) in keys_pressed.iter_mut() {
                         if is_key_pressed(*keycode) {
@@ -1470,7 +1470,7 @@ async fn main() {
                 } else {
                     let delta = get_frame_time();
                     global_timer += delta;
-                    remaining_timer += delta;
+                    remaining_timer += delta * global_state.modifiers.game_speed;
                     if remaining_timer * 60. >= 1. {
                         paused_frames += 1;
                         remaining_timer -= 1. / 60.;
@@ -1564,7 +1564,7 @@ async fn main() {
                 // draw_rectangle(255., 191., 2., 2., BLUE);
                 let d = level.dimensions();
                 // draw the rest of the level as well!!
-                if levelset.is_some() {
+                if levelset.is_some() && !global_state.modifiers.invisiblelevel {
                     levelset.as_ref().expect("is some").levels[*current_ind].propagate_draw(
                         render_off_x as i32,
                         render_off_y as i32,

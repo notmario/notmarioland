@@ -27,12 +27,20 @@ pub struct GlobalState {
 #[derive(Copy, Clone)]
 pub struct Modifiers {
     pub superslippery: bool,
+    pub game_speed: f32,
+    pub invisiblelevel: bool,
+    pub invisibleplayer: bool,
+    pub nowalljump: bool,
 }
 
 impl Default for Modifiers {
     fn default() -> Self {
         Modifiers {
             superslippery: false,
+            game_speed: 1.,
+            invisiblelevel: false,
+            invisibleplayer: false,
+            nowalljump: false,
         }
     }
 }
@@ -967,7 +975,8 @@ impl Object for Player {
             Direction::h_vel(self.vx),
             &global_state,
         ) {
-            let can_wallslide = check_tilemap_wallslideable(self.get_aabb(), tiles);
+            let can_wallslide = check_tilemap_wallslideable(self.get_aabb(), tiles)
+                && !global_state.modifiers.nowalljump;
             self.x -= remaining_movement;
             self.freeze_timer = 0;
             if ((self.vx < 0 && is_key_down(KeyCode::Left))
@@ -2044,29 +2053,38 @@ impl Level {
         gs: &GlobalState,
         t: &TransitionAnimationType,
     ) {
-        let max_y = self.tiles[0].len() - 1;
-        let max_x = self.tiles[0][0].len() - 1;
-        for layer in self.tiles.iter() {
-            for (y, row) in layer.iter().enumerate() {
-                for (x, tile) in row.iter().enumerate() {
-                    let adj = Adjacencies {
-                        up: y == 0 || layer[y - 1][x] == *tile,
-                        down: y == max_y || layer[y + 1][x] == *tile,
-                        left: x == 0 || layer[y][x - 1] == *tile,
-                        right: x == max_x || layer[y][x + 1] == *tile,
-                    };
-                    tile.draw(
-                        x as i32 * TILE_PIXELS + off_x,
-                        y as i32 * TILE_PIXELS + off_y,
-                        textures,
-                        theme,
-                        &adj,
-                    )
+        if !gs.modifiers.invisiblelevel {
+            let max_y = self.tiles[0].len() - 1;
+            let max_x = self.tiles[0][0].len() - 1;
+            for layer in self.tiles.iter() {
+                for (y, row) in layer.iter().enumerate() {
+                    for (x, tile) in row.iter().enumerate() {
+                        let adj = Adjacencies {
+                            up: y == 0 || layer[y - 1][x] == *tile,
+                            down: y == max_y || layer[y + 1][x] == *tile,
+                            left: x == 0 || layer[y][x - 1] == *tile,
+                            right: x == max_x || layer[y][x + 1] == *tile,
+                        };
+                        tile.draw(
+                            x as i32 * TILE_PIXELS + off_x,
+                            y as i32 * TILE_PIXELS + off_y,
+                            textures,
+                            theme,
+                            &adj,
+                        )
+                    }
                 }
             }
         }
         for o in self.objects.iter() {
-            o.draw(off_x, off_y, textures, gs, t)
+            let should_draw = if o.get_type() == "PLAYER" {
+                !gs.modifiers.invisibleplayer
+            } else {
+                !gs.modifiers.invisiblelevel
+            };
+            if should_draw {
+                o.draw(off_x, off_y, textures, gs, t)
+            }
         }
     }
     pub fn update(
