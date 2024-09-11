@@ -693,6 +693,12 @@ async fn main() {
         "assets/levelselector.png",
         "assets/icecube.png",
         "assets/playervanish.png",
+        "assets/alwaysjumping.png",
+        "assets/fastforward.png",
+        "assets/hiddenlevel.png",
+        "assets/nowalljump.png",
+        "assets/rewind.png",
+        "assets/uncappedspeed.png",
     ];
 
     for p in preload_textures {
@@ -1717,6 +1723,13 @@ async fn main() {
                         deaths,
                     );
                     draw_text_cool_l(&font, &t, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 17, WHITE);
+                }
+
+                let imgs = global_state.modifiers.get_images();
+                for (i, img) in imgs.iter().enumerate() {
+                    let t = texture_cache!(&mut textures, *img);
+                    let x = SCREEN_WIDTH - 16 * (imgs.len() - i) as i32;
+                    draw_texture(&t, x as f32, 0., WHITE);
                 }
 
                 if settings.show_input {

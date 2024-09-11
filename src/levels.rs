@@ -49,6 +49,39 @@ impl Default for Modifiers {
     }
 }
 
+impl Modifiers {
+    pub fn get_images(&self) -> Vec<&'static str> {
+        let mut imgs = vec![];
+
+        if self.game_speed < 1. {
+            imgs.push("assets/rewind.png")
+        } else if self.game_speed > 1. {
+            imgs.push("assets/fastforward.png")
+        }
+
+        if self.superslippery {
+            imgs.push("assets/icecube.png")
+        };
+        if self.invisiblelevel {
+            imgs.push("assets/hiddenlevel.png")
+        };
+        if self.invisibleplayer {
+            imgs.push("assets/playervanish.png")
+        };
+        if self.nowalljump {
+            imgs.push("assets/nowalljump.png")
+        };
+        if self.alwaysjumping {
+            imgs.push("assets/alwaysjumping.png");
+        }
+        if self.uncapped_speed {
+            imgs.push("assets/uncappedspeed.png")
+        }
+
+        imgs
+    }
+}
+
 impl GlobalState {
     pub fn new() -> Self {
         GlobalState {
