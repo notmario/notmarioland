@@ -1172,6 +1172,12 @@ impl Object for Player {
             }
             self.wall_sliding = 0;
         }
+
+        // do it again because this was bugging me
+        if !global_state.modifiers.uncapped_speed {
+            self.vx = self.vx.clamp(-TILE_SIZE, TILE_SIZE);
+            self.vy = self.vy.clamp(-TILE_SIZE, TILE_SIZE);
+        }
     }
 
     fn draw(
