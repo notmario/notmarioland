@@ -33,6 +33,8 @@ pub struct Modifiers {
     pub nowalljump: bool,
     pub alwaysjumping: bool,
     pub uncapped_speed: bool,
+    pub infinitejumps: bool,
+    pub unkillable: bool,
 }
 
 impl Default for Modifiers {
@@ -45,6 +47,8 @@ impl Default for Modifiers {
             nowalljump: false,
             alwaysjumping: false,
             uncapped_speed: false,
+            infinitejumps: false,
+            unkillable: false,
         }
     }
 }
@@ -74,16 +78,21 @@ impl Modifiers {
         if self.alwaysjumping {
             imgs.push("assets/alwaysjumping.png");
         }
+        if self.infinitejumps {
+            imgs.push("assets/infinitejumps.png")
+        }
         if self.uncapped_speed {
             imgs.push("assets/uncappedspeed.png")
         }
-
+        if self.unkillable {
+            imgs.push("assets/unkillable.png")
+        }
         imgs
     }
 }
 
 impl GlobalState {
-    pub fn new() -> Self {
+    pub fn new(mods: Option<Modifiers>) -> Self {
         GlobalState {
             changed_tiles: HashMap::new(),
             keys: [0; 6],
@@ -95,8 +104,8 @@ impl GlobalState {
             binocular_t: 0,
             binocular_rx: 0,
             binocular_ry: 0,
-            modifiers: Default::default(),
-            default_modifiers: Default::default(),
+            modifiers: mods.unwrap_or_default(),
+            default_modifiers: mods.unwrap_or_default(),
         }
     }
 }
@@ -251,6 +260,8 @@ impl Tile {
             Self::CyanLock => gs.keys[3] == 0,
             Self::BlueLock => gs.keys[4] == 0,
             Self::MagentaLock => gs.keys[5] == 0,
+
+            Self::Spikes => gs.modifiers.unkillable,
 
             _ => false,
         }
@@ -1059,7 +1070,9 @@ impl Object for Player {
             }
             if can_wallslide {
                 self.vx = 0;
-            } else if is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right) {
+            } else if (is_key_down(KeyCode::Left) && is_key_down(KeyCode::Right))
+                || global_state.modifiers.superslippery
+            {
                 self.vx *= -1;
             }
         } else if remaining_movement.abs() > 0 {
@@ -1090,7 +1103,9 @@ impl Object for Player {
             }
         }
 
-        if (self.grounded || (global_state.jumps > 0 && self.freeze_timer <= 0))
+        if (self.grounded
+            || (global_state.jumps > 0 && self.freeze_timer <= 0)
+            || global_state.modifiers.infinitejumps)
             && *keys_pressed.entry(KeyCode::Z).or_insert(false)
         {
             self.vy = -TILE_SIZE * 5 / 16;

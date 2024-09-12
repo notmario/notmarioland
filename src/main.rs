@@ -22,7 +22,7 @@ mod macros;
 
 enum MenuState {
     Main(usize),
-    LevelsetSelect(usize),
+    LevelsetSelect(usize, usize, levels::Modifiers),
     Settings(usize),
 }
 
@@ -699,6 +699,8 @@ async fn main() {
         "assets/nowalljump.png",
         "assets/rewind.png",
         "assets/uncappedspeed.png",
+        "assets/infinitejumps.png",
+        "assets/unkillable.png",
     ];
 
     for p in preload_textures {
@@ -837,19 +839,37 @@ async fn main() {
 
                         if is_key_pressed(KeyCode::Z) {
                             match ind {
-                                0 => *menu_state = MenuState::LevelsetSelect(0),
+                                0 => {
+                                    *menu_state = MenuState::LevelsetSelect(
+                                        0,
+                                        0,
+                                        levels::Modifiers::default(),
+                                    )
+                                }
                                 1 => *menu_state = MenuState::Settings(0),
                                 2 => panic!("user closed game"),
                                 _ => (),
                             }
                         }
                     }
-                    MenuState::LevelsetSelect(ind) => {
+                    MenuState::LevelsetSelect(ind, m_ind, mods) => {
                         let t = texture_cache!(&mut textures, "assets/pausebg.png");
                         let p = -((global_timer * 4.) as i32 % 8) as f32;
                         draw_texture(&t, p, p, WHITE);
 
-                        draw_text_cool_c(&font, "select level", SCREEN_WIDTH / 2, 48, WHITE);
+                        let off_y = if *m_ind == 0 {
+                            0
+                        } else {
+                            -SCREEN_HEIGHT / 2 - 18 * *m_ind as i32 + 64
+                        };
+
+                        draw_text_cool_c(
+                            &font,
+                            "select level",
+                            SCREEN_WIDTH / 2,
+                            48 + off_y,
+                            WHITE,
+                        );
 
                         let base_levelsets = ["tutorial".to_string(), "doublejump".to_string()];
 
@@ -871,7 +891,7 @@ async fn main() {
                                 draw_texture(
                                     &t,
                                     (SCREEN_WIDTH / 2 - 64 - 160 * (*ind as i32 - i as i32)) as f32,
-                                    (128 + 16 * (i as i32 - *ind as i32)) as f32,
+                                    (128 + 16 * (i as i32 - *ind as i32) + off_y) as f32,
                                     WHITE,
                                 );
                                 continue;
@@ -881,7 +901,7 @@ async fn main() {
                                 draw_texture(
                                     &t,
                                     (SCREEN_WIDTH / 2 - 64 - 160 * (*ind as i32 - i as i32)) as f32,
-                                    (128 + 16 * (i as i32 - *ind as i32)) as f32,
+                                    (128 + 16 * (i as i32 - *ind as i32) + off_y) as f32,
                                     WHITE,
                                 )
                             } else {
@@ -889,76 +909,178 @@ async fn main() {
                                     &font,
                                     &l,
                                     SCREEN_WIDTH / 2 - 160 * (*ind as i32 - i as i32),
-                                    128 + 16 * (i as i32 - *ind as i32) + 40,
+                                    128 + 16 * (i as i32 - *ind as i32) + off_y + 40,
                                     WHITE,
                                 );
                             }
                         }
                         let t = texture!(&mut textures, "assets/levelselector.png");
-                        draw_texture(&t, (SCREEN_WIDTH / 2 - 64 - 16) as f32, 112., WHITE);
+                        draw_texture(
+                            &t,
+                            (SCREEN_WIDTH / 2 - 64 - 16) as f32,
+                            112. + off_y as f32,
+                            WHITE,
+                        );
 
-                        if is_key_pressed(KeyCode::Right) && *ind < levelsets.len() {
-                            *ind += 1
-                        }
-                        if is_key_pressed(KeyCode::Left) && *ind > 0 {
-                            *ind -= 1
+                        draw_text_cool_c(
+                            &font,
+                            "modifiers",
+                            SCREEN_WIDTH / 2,
+                            3 * SCREEN_HEIGHT / 4 + off_y,
+                            WHITE,
+                        );
+
+                        let m = |b| if b { "yes" } else { "no" };
+
+                        let modifier_menu = [
+                            ("levels", "", ""),
+                            (
+                                "super slippery",
+                                "assets/icecube.png",
+                                m(mods.superslippery),
+                            ),
+                            (
+                                "invisible level",
+                                "assets/hiddenlevel.png",
+                                m(mods.invisiblelevel),
+                            ),
+                            (
+                                "invisible player",
+                                "assets/playervanish.png",
+                                m(mods.invisibleplayer),
+                            ),
+                            ("no wall jump", "assets/nowalljump.png", m(mods.nowalljump)),
+                            (
+                                "always jumping",
+                                "assets/alwaysjumping.png",
+                                m(mods.alwaysjumping),
+                            ),
+                            (
+                                "uncapped speed",
+                                "assets/uncappedspeed.png",
+                                m(mods.uncapped_speed),
+                            ),
+                            (
+                                "infinite jumps",
+                                "assets/infinitejumps.png",
+                                m(mods.infinitejumps),
+                            ),
+                            ("unkillable", "assets/unkillable.png", m(mods.unkillable)),
+                        ];
+
+                        for (i, (name, img, val)) in modifier_menu.iter().enumerate() {
+                            if i == 0 {
+                                continue;
+                            }
+                            let t = texture_cache!(&mut textures, *img);
+                            let y = SCREEN_HEIGHT / 2 + 100 + 18 * i as i32 + off_y;
+                            draw_texture(&t, (SCREEN_WIDTH / 2 - 128) as f32, y as f32, WHITE);
+                            draw_text_cool(&font, name, SCREEN_WIDTH / 2 - 108, y, WHITE);
+                            draw_text_cool_l(&font, val, SCREEN_WIDTH / 2 + 128, y, WHITE);
+                            if i == *m_ind {
+                                draw_text_cool_l(&font, ">", SCREEN_WIDTH / 2 - 132, y, WHITE);
+                                draw_text_cool(&font, "<", SCREEN_WIDTH / 2 + 132, y, WHITE);
+                            }
                         }
 
-                        if is_key_pressed(KeyCode::Z) {
-                            if *ind == levelsets.len() {
+                        if is_key_pressed(KeyCode::Up) && *m_ind != 0 {
+                            *m_ind -= 1
+                        }
+
+                        if is_key_pressed(KeyCode::Down) && *m_ind != modifier_menu.len() - 1 {
+                            *m_ind += 1
+                        }
+
+                        if is_key_pressed(KeyCode::Z) && *m_ind != 0 {
+                            match modifier_menu[*m_ind].0 {
+                                "super slippery" => mods.superslippery = !mods.superslippery,
+                                "invisible level" => mods.invisiblelevel = !mods.invisiblelevel,
+                                "invisible player" => mods.invisibleplayer = !mods.invisibleplayer,
+                                "no wall jump" => mods.nowalljump = !mods.nowalljump,
+                                "always jumping" => mods.alwaysjumping = !mods.alwaysjumping,
+                                "uncapped speed" => mods.uncapped_speed = !mods.uncapped_speed,
+                                "infinite jumps" => mods.infinitejumps = !mods.infinitejumps,
+                                "unkillable" => mods.unkillable = !mods.unkillable,
+                                _ => (),
+                            }
+                        }
+
+                        if *m_ind != 0 {
+                        } else {
+                            if is_key_pressed(KeyCode::Right) && *ind < levelsets.len() {
+                                *ind += 1
+                            }
+                            if is_key_pressed(KeyCode::Left) && *ind > 0 {
+                                *ind -= 1
+                            }
+
+                            if is_key_pressed(KeyCode::Z) {
+                                if *ind == levelsets.len() {
+                                    *menu_state = MenuState::Main(0);
+                                } else {
+                                    let l = base_levelsets
+                                        .iter()
+                                        .chain(
+                                            levelsets
+                                                .iter()
+                                                .filter(|l| !base_levelsets.contains(l)),
+                                        )
+                                        .nth(*ind)
+                                        .expect("fuck you");
+                                    let levelset = levels::load_levelset(&format!("levels/{}", l));
+                                    levelset_ind = levelsets
+                                        .iter()
+                                        .position(|k| k == l)
+                                        .expect("should be findable");
+                                    let current_ind = 0; // we assume the first level is index 0
+
+                                    let level_raw = levelset.levels[current_ind].clone();
+                                    let level = levels::Level::from_level_raw(
+                                        level_raw,
+                                        0,
+                                        &levelset.levels,
+                                        &HashMap::new(),
+                                    );
+
+                                    paused = false;
+                                    render_off_x = 0.;
+                                    render_off_y = 0.;
+
+                                    themes = levelset.themes.clone();
+                                    deaths = 0;
+                                    secret_count = levelset.secret_count;
+                                    transition_ticks = 0;
+                                    secret_transition = false;
+                                    paused_frames = 0;
+
+                                    if themes.len() == 0 {
+                                        themes.push(Theme {
+                                            ..Default::default()
+                                        })
+                                    }
+
+                                    for t in themes.iter() {
+                                        t.load_textures(&mut textures).await;
+                                    }
+
+                                    state = State::Game {
+                                        levelset: Some(levelset),
+                                        current_ind,
+                                        level,
+                                        global_state: levels::GlobalState::new(Some(*mods)),
+                                        won: false,
+                                    }
+                                }
+                            } else if is_key_pressed(KeyCode::Escape) {
                                 *menu_state = MenuState::Main(0);
                             } else {
-                                let l = base_levelsets
-                                    .iter()
-                                    .chain(levelsets.iter().filter(|l| !base_levelsets.contains(l)))
-                                    .nth(*ind)
-                                    .expect("fuck you");
-                                let levelset = levels::load_levelset(&format!("levels/{}", l));
-                                levelset_ind = levelsets
-                                    .iter()
-                                    .position(|k| k == l)
-                                    .expect("should be findable");
-                                let current_ind = 0; // we assume the first level is index 0
-
-                                let level_raw = levelset.levels[current_ind].clone();
-                                let level = levels::Level::from_level_raw(
-                                    level_raw,
-                                    0,
-                                    &levelset.levels,
-                                    &HashMap::new(),
-                                );
-
-                                paused = false;
-                                render_off_x = 0.;
-                                render_off_y = 0.;
-
-                                themes = levelset.themes.clone();
-                                deaths = 0;
-                                secret_count = levelset.secret_count;
-                                transition_ticks = 0;
-                                secret_transition = false;
-                                paused_frames = 0;
-
-                                if themes.len() == 0 {
-                                    themes.push(Theme {
-                                        ..Default::default()
-                                    })
-                                }
-
-                                for t in themes.iter() {
-                                    t.load_textures(&mut textures).await;
-                                }
-
-                                state = State::Game {
-                                    levelset: Some(levelset),
-                                    current_ind,
-                                    level,
-                                    global_state: levels::GlobalState::new(),
-                                    won: false,
+                                let imgs = mods.get_images();
+                                for (i, img) in imgs.iter().enumerate() {
+                                    let t = texture_cache!(&mut textures, *img);
+                                    let x = SCREEN_WIDTH - 16 * (imgs.len() - i) as i32;
+                                    draw_texture(&t, x as f32, 0., WHITE);
                                 }
                             }
-                        } else if is_key_pressed(KeyCode::Escape) {
-                            *menu_state = MenuState::Main(0);
                         }
                     }
                     MenuState::Settings(ind) => {
@@ -1314,7 +1436,10 @@ async fn main() {
                                 p.x = new_off_x + off_x;
                                 (p.vx, p.vy) = player_vel
                             } else {
-                                if levelset.is_some() {
+                                if global_state.modifiers.unkillable {
+                                    let player_obj = level.player_obj();
+                                    player_obj.vy *= -1;
+                                } else if levelset.is_some() {
                                     transition_ticks = -80;
                                     secret_transition = false;
 
@@ -1390,8 +1515,9 @@ async fn main() {
                             let p_obj = level.player_obj();
                             let aabb = (p_obj as &mut dyn Object).get_aabb();
 
-                            if levels::check_tilemap_death(aabb, &level.tiles)
-                                || levels::check_object_death(aabb, &level.objects)
+                            if (levels::check_tilemap_death(aabb, &level.tiles)
+                                || levels::check_object_death(aabb, &level.objects))
+                                && !global_state.modifiers.unkillable
                             {
                                 if levelset.is_some() {
                                     transition_ticks = -80;
@@ -2098,7 +2224,9 @@ async fn main() {
                                     levelset: Some(levelset),
                                     current_ind,
                                     level,
-                                    global_state: levels::GlobalState::new(),
+                                    global_state: levels::GlobalState::new(Some(
+                                        global_state.default_modifiers,
+                                    )),
                                     won: false,
                                 }
                             }
@@ -2106,8 +2234,7 @@ async fn main() {
                             _ => unreachable!(),
                         }
                     }
-                }
-                if paused && is_key_pressed(KeyCode::Z) {
+                } else if paused && is_key_pressed(KeyCode::Z) {
                     if is_key_pressed(KeyCode::Z) {
                         match paused_selection {
                             0 => paused = false,
@@ -2151,7 +2278,9 @@ async fn main() {
                                     levelset: Some(levelset),
                                     current_ind,
                                     level,
-                                    global_state: levels::GlobalState::new(),
+                                    global_state: levels::GlobalState::new(Some(
+                                        global_state.default_modifiers,
+                                    )),
                                     won: false,
                                 }
                             }
