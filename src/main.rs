@@ -3,6 +3,7 @@
 use core::f32;
 use std::collections::HashMap;
 
+use macroquad::audio::{load_sound, play_sound, PlaySoundParams, Sound};
 use macroquad::prelude::*;
 
 const PIXEL_SIZE: i32 = 256;
@@ -585,6 +586,7 @@ async fn main() {
     let mut settings = Settings::load("settings");
     settings.apply();
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
+    let mut sounds: HashMap<String, Sound> = HashMap::new();
 
     let fs = PAUSE_BG_FRAGMENT_SHADER.to_string();
     let vs = DEFAULT_VERTEX_SHADER.to_string();
@@ -735,6 +737,12 @@ async fn main() {
 
     for p in preload_textures {
         texture!(&mut textures, p);
+    }
+
+    let preload_sounds = ["assets/mus/jump.ogg", "assets/mus/death.ogg"];
+
+    for p in preload_sounds {
+        sound!(&mut sounds, p);
     }
 
     let render_target = render_target(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32);
@@ -1281,7 +1289,7 @@ async fn main() {
                     }
 
                     if remaining_timer * 60. >= 1. && transition_ticks >= 0 {
-                        level.update(&mut keys_pressed, global_state);
+                        level.update(&mut keys_pressed, global_state, &mut sounds);
 
                         let pbb = level.player_obj().get_aabb();
 
@@ -1474,6 +1482,15 @@ async fn main() {
                                     secret_transition = false;
 
                                     deaths += 1;
+
+                                    let s = sound!(&mut sounds, "assets/mus/death.ogg");
+                                    play_sound(
+                                        &s,
+                                        PlaySoundParams {
+                                            looped: false,
+                                            volume: 0.8,
+                                        },
+                                    );
                                 } else {
                                     todo!()
                                 }
@@ -1555,6 +1572,15 @@ async fn main() {
                                     secret_transition = false;
 
                                     deaths += 1;
+
+                                    let s = sound!(&mut sounds, "assets/mus/death.ogg");
+                                    play_sound(
+                                        &s,
+                                        PlaySoundParams {
+                                            looped: false,
+                                            volume: 0.8,
+                                        },
+                                    );
                                 } else {
                                     todo!()
                                 }

@@ -1,8 +1,9 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
 use crate::{
-    texture_cache, Adjacencies, AdvancedAdjacencies, Theme, TransitionAnimationType, SCREEN_HEIGHT,
-    SCREEN_WIDTH,
+    sound_cache, texture_cache, Adjacencies, AdvancedAdjacencies, Theme, TransitionAnimationType,
+    SCREEN_HEIGHT, SCREEN_WIDTH,
 };
+use macroquad::audio::{play_sound, PlaySoundParams, Sound};
 use macroquad::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
@@ -925,6 +926,7 @@ pub trait Object {
         _keys_pressed: &mut HashMap<KeyCode, bool>,
         _tiles: &mut Vec<Vec<Vec<Tile>>>,
         _global_state: &mut GlobalState,
+        _sounds: &mut HashMap<String, Sound>,
     ) {
     }
 
@@ -1004,6 +1006,7 @@ impl Object for Player {
         keys_pressed: &mut HashMap<KeyCode, bool>,
         tiles: &mut Vec<Vec<Vec<Tile>>>,
         global_state: &mut GlobalState,
+        sounds: &mut HashMap<String, Sound>,
     ) {
         if global_state.binocularing {
             return;
@@ -1172,6 +1175,14 @@ impl Object for Player {
                     self.vy = -TILE_SIZE * 4 / 16;
                 }
                 self.wall_sliding = 0;
+                let s = sound_cache!(sounds, "assets/mus/jump.ogg");
+                play_sound(
+                    &s,
+                    PlaySoundParams {
+                        looped: false,
+                        volume: 0.2,
+                    },
+                );
             }
         }
 
@@ -1194,6 +1205,14 @@ impl Object for Player {
                 global_state.collected_jump_arrows.pop_front();
             }
             self.grounded = false;
+            let s = sound_cache!(sounds, "assets/mus/jump.ogg");
+            play_sound(
+                &s,
+                PlaySoundParams {
+                    looped: false,
+                    volume: 0.2,
+                },
+            );
         }
 
         // same but vertical
@@ -1467,6 +1486,7 @@ impl Object for Saw {
         _keys_pressed: &mut HashMap<KeyCode, bool>,
         tiles: &mut Vec<Vec<Vec<Tile>>>,
         global_state: &mut GlobalState,
+        _sounds: &mut HashMap<String, Sound>,
     ) {
         // horizontal movement
         // move to tile boundary if we are moving too fast
@@ -1608,6 +1628,7 @@ impl Object for SawLauncher {
         _keys_pressed: &mut HashMap<KeyCode, bool>,
         _tiles: &mut Vec<Vec<Vec<Tile>>>,
         _global_state: &mut GlobalState,
+        _sounds: &mut HashMap<String, Sound>,
     ) {
     }
 
@@ -1673,6 +1694,7 @@ impl Object for ArrowRespawn {
         _keys_pressed: &mut HashMap<KeyCode, bool>,
         tiles: &mut Vec<Vec<Vec<Tile>>>,
         gs: &mut GlobalState,
+        _sounds: &mut HashMap<String, Sound>,
     ) {
         if tiles[self.layer][self.yi][self.xi] != Tile::JumpArrow
             && !gs
@@ -2293,10 +2315,11 @@ impl Level {
         &mut self,
         keys_pressed: &mut HashMap<KeyCode, bool>,
         global_state: &mut GlobalState,
+        sounds: &mut HashMap<String, Sound>,
     ) {
         global_state.timer += 1;
         for o in self.objects.iter_mut() {
-            o.update(keys_pressed, &mut self.tiles, global_state)
+            o.update(keys_pressed, &mut self.tiles, global_state, sounds)
         }
         self.objects.retain(|o| !o.should_clear());
         let mut extra_objs = self

@@ -55,3 +55,80 @@ macro_rules! texture_cache {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! sound {
+	(
+		$sounds: expr
+		$(, $paths:expr)+
+	) => {
+		{
+			let mut sound = None;
+			let paths = [$($paths, )+];
+			// let skins = std::fs::read_to_string("enabledskins").expect("should exist if all is fine");
+			// let skins: Vec<&str> = skins.lines().collect();
+			for path in paths {
+				if $sounds.contains_key(path) {
+					sound = Some($sounds.get(path).expect("it exists").clone());
+					break
+				} else {
+
+          let t = load_sound(path).await.unwrap();
+          $sounds.insert(path.to_string(), t.clone());
+          sound = Some(t);
+					// std::thread::sleep(std::time::Duration::from_millis(16));
+				}
+			}
+			if sound.is_none() {
+				panic!("Could not load sound {}",paths.last().expect("there will be a last one"))
+			}
+			sound.expect("it is not none")
+		}
+		// if !$textures.contains_key($paths) {
+		//     let mut texture = match Texture::new($ctx, $path) {
+		//         Ok(it) => {$textures.insert($path.to_string(), it.clone()); it},
+		//         Err(_) => panic!("Could not load texture {}",$path)
+		//     };
+		//     texture.set_filter_mode($ctx, tetra::graphics::FilterMode::Nearest);
+
+		//     texture
+		// } else {
+		//     $textures.get($path).expect("it exists").clone()
+		// }
+	};
+}
+
+#[macro_export]
+macro_rules! sound_cache {
+	(
+		$sounds: expr
+		$(, $paths:expr)+
+	) => {
+		{
+			let mut sound = None;
+			let paths = [$($paths, )+];
+			// let skins = std::fs::read_to_string("enabledskins").expect("should exist if all is fine");
+			// let skins: Vec<&str> = skins.lines().collect();
+			for path in paths {
+				if $sounds.contains_key(path) {
+					sound = Some($sounds.get(path).expect("it exists").clone());
+					break
+				}			}
+			if sound.is_none() {
+				panic!("Could not load sound {}",paths.last().expect("there will be a last one"))
+			}
+			sound.expect("it is not none")
+		}
+		// if !$textures.contains_key($paths) {
+		//     let mut texture = match Texture::new($ctx, $path) {
+		//         Ok(it) => {$textures.insert($path.to_string(), it.clone()); it},
+		//         Err(_) => panic!("Could not load texture {}",$path)
+		//     };
+		//     texture.set_filter_mode($ctx, tetra::graphics::FilterMode::Nearest);
+
+		//     texture
+		// } else {
+		//     $textures.get($path).expect("it exists").clone()
+		// }
+	};
+}
