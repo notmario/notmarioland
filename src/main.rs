@@ -725,6 +725,12 @@ async fn main() {
         "assets/uncappedspeed.png",
         "assets/infinitejumps.png",
         "assets/unkillable.png",
+        "assets/redswitch.png",
+        "assets/blueswitch.png",
+        "assets/redswitchblock.png",
+        "assets/redswitchblockoff.png",
+        "assets/blueswitchblock.png",
+        "assets/blueswitchblockoff.png",
     ];
 
     for p in preload_textures {
@@ -795,7 +801,7 @@ async fn main() {
                         let t = texture_cache!(&mut textures, "assets/logo.png");
                         draw_texture(
                             &t,
-                            32. + ((global_timer / 4.).sin() * 16.) as i32 as f32,
+                            24. + ((global_timer / 4.).sin() * 16.) as i32 as f32,
                             104. + ((global_timer / 7.).cos() * 11.) as i32 as f32,
                             WHITE,
                         );
@@ -1736,6 +1742,7 @@ async fn main() {
                         &mut textures,
                         &themes,
                         level.theme,
+                        &global_state,
                     );
                 }
 

@@ -23,6 +23,7 @@ pub struct GlobalState {
     pub binocular_ry: i32,
     pub modifiers: Modifiers,
     pub default_modifiers: Modifiers,
+    pub switched: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -107,6 +108,7 @@ impl GlobalState {
             binocular_ry: 0,
             modifiers: mods.unwrap_or_default(),
             default_modifiers: mods.unwrap_or_default(),
+            switched: false,
         }
     }
 }
@@ -195,6 +197,10 @@ pub enum Tile {
     JumpArrowOutline,
 
     Binocular,
+
+    Switch,
+    SwitchRed,
+    SwitchBlue,
 
     IceCube,
     PlayerVanish,
@@ -286,6 +292,10 @@ impl Tile {
 
             Self::Spikes => gs.modifiers.unkillable,
 
+            Self::Switch => true,
+            Self::SwitchRed => !gs.switched,
+            Self::SwitchBlue => gs.switched,
+
             _ => false,
         }
     }
@@ -355,6 +365,10 @@ impl Tile {
             "icecube" => Self::IceCube,
             "playervanish" => Self::PlayerVanish,
 
+            "switch" => Self::Switch,
+            "switchred" => Self::SwitchRed,
+            "switchblue" => Self::SwitchBlue,
+
             _ => Self::Empty,
         }
     }
@@ -421,6 +435,7 @@ impl Tile {
         theme: &Theme,
         touching: &Adjacencies,
         at: &AdvancedAdjacencies,
+        gs: &GlobalState,
     ) {
         match self {
             Self::Empty => (),
@@ -519,6 +534,25 @@ impl Tile {
                         _ => unreachable!(),
                     }
                 }
+            }
+            Self::Switch | Self::SwitchRed | Self::SwitchBlue => {
+                let te = if gs.switched {
+                    match self {
+                        Self::Switch => "assets/blueswitch.png",
+                        Self::SwitchRed => "assets/redswitchblockoff.png",
+                        Self::SwitchBlue => "assets/blueswitchblock.png",
+                        _ => unreachable!(),
+                    }
+                } else {
+                    match self {
+                        Self::Switch => "assets/redswitch.png",
+                        Self::SwitchRed => "assets/redswitchblock.png",
+                        Self::SwitchBlue => "assets/blueswitchblockoff.png",
+                        _ => unreachable!(),
+                    }
+                };
+                let t = texture_cache!(textures, te);
+                tilemap_draw(&t, x, y, touching)
             }
             _ => {
                 let t = self.sprite();
@@ -632,6 +666,10 @@ pub fn check_tilemap_death(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
 
 pub fn check_tilemap_win(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
     check_tilemap_condition(c_box, map, |t, _, _| t == Tile::Goal)
+}
+
+pub fn check_tilemap_switch(c_box: AABB, map: &Vec<Vec<Vec<Tile>>>) -> bool {
+    check_tilemap_condition(c_box, map, |t, _, _| t == Tile::Switch)
 }
 
 pub fn check_object_death(c_box: AABB, objects: &Vec<Box<dyn Object>>) -> bool {
@@ -1195,6 +1233,11 @@ impl Object for Player {
             Direction::v_vel(self.vy),
             &global_state,
         ) {
+            if self.vy < -PIXEL_SIZE {
+                if check_tilemap_switch(self.get_aabb(), tiles) {
+                    global_state.switched = !global_state.switched;
+                }
+            }
             self.y -= remaining_movement;
             if self.vy > 0 {
                 // going down, we have just landed
@@ -1781,6 +1824,7 @@ impl LevelRaw {
         subs: &HashMap<(usize, usize, usize, usize), Tile>,
         textures: &mut HashMap<String, Texture2D>,
         theme: &Theme,
+        gs: &GlobalState,
     ) {
         let max_y = self.tiles[0].len() - 1;
         let max_x = self.tiles[0][0].len() - 1;
@@ -1817,6 +1861,7 @@ impl LevelRaw {
                         theme,
                         &adj,
                         &aadj,
+                        gs,
                     )
                 }
             }
@@ -1834,6 +1879,7 @@ impl LevelRaw {
         textures: &mut HashMap<String, Texture2D>,
         themes: &[Theme],
         default_theme: usize,
+        gs: &GlobalState,
     ) {
         if !skip_actually_drawing {
             self.draw(
@@ -1843,6 +1889,7 @@ impl LevelRaw {
                 subs,
                 textures,
                 &themes[self.theme.unwrap_or(default_theme)],
+                gs,
             )
         }
         if self.exits.left.is_some() && !seen.contains(&self.exits.left.expect("is some")) {
@@ -1868,6 +1915,7 @@ impl LevelRaw {
                 textures,
                 themes,
                 default_theme,
+                gs,
             );
         };
         if self.exits.right.is_some() && !seen.contains(&self.exits.right.expect("is some")) {
@@ -1893,6 +1941,7 @@ impl LevelRaw {
                 textures,
                 themes,
                 default_theme,
+                gs,
             );
         };
         if self.exits.up.is_some() && !seen.contains(&self.exits.up.expect("is some")) {
@@ -1918,6 +1967,7 @@ impl LevelRaw {
                 textures,
                 themes,
                 default_theme,
+                gs,
             );
         };
         if self.exits.down.is_some() && !seen.contains(&self.exits.down.expect("is some")) {
@@ -1943,6 +1993,7 @@ impl LevelRaw {
                 textures,
                 themes,
                 default_theme,
+                gs,
             );
         };
     }
@@ -2221,6 +2272,7 @@ impl Level {
                             theme,
                             &adj,
                             &aadj,
+                            gs,
                         )
                     }
                 }
