@@ -1,6 +1,7 @@
 use super::{MAX_PLAYER_SPEED, PIXEL_SIZE, PLAYER_ACCEL, TILE_PIXELS, TILE_SIZE};
 use crate::{
-    texture_cache, Adjacencies, Theme, TransitionAnimationType, SCREEN_HEIGHT, SCREEN_WIDTH,
+    texture_cache, Adjacencies, AdvancedAdjacencies, Theme, TransitionAnimationType, SCREEN_HEIGHT,
+    SCREEN_WIDTH,
 };
 use macroquad::prelude::*;
 use std::collections::{HashMap, VecDeque};
@@ -231,6 +232,28 @@ fn tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &Adjacencies) {
     )
 }
 
+fn adv_tilemap_draw(t: &Texture2D, x: i32, y: i32, touching: &AdvancedAdjacencies) {
+    let ind = touching.ind();
+    let ix = (ind % 16) * 16;
+    let iy = (ind / 16) * 16;
+
+    draw_texture_ex(
+        &t,
+        x as f32,
+        y as f32,
+        WHITE,
+        DrawTextureParams {
+            source: Some(Rect {
+                x: ix as f32,
+                y: iy as f32,
+                w: 16.,
+                h: 16.,
+            }),
+            ..Default::default()
+        },
+    )
+}
+
 impl Tile {
     pub fn is_solid(
         &self,
@@ -397,6 +420,7 @@ impl Tile {
         textures: &mut HashMap<String, Texture2D>,
         theme: &Theme,
         touching: &Adjacencies,
+        at: &AdvancedAdjacencies,
     ) {
         match self {
             Self::Empty => (),
@@ -409,8 +433,13 @@ impl Tile {
                     _ => unreachable!(),
                 };
                 if te.is_some() {
-                    let t = texture_cache!(textures, te.as_ref().expect("it exists"));
-                    tilemap_draw(&t, x, y, touching);
+                    let te = te.as_ref().expect("it exists");
+                    let t = texture_cache!(textures, te);
+                    if te.ends_with("-adv.png") {
+                        adv_tilemap_draw(&t, x, y, at);
+                    } else {
+                        tilemap_draw(&t, x, y, touching);
+                    }
                 } else {
                     draw_rect_i32(
                         x,
@@ -430,8 +459,13 @@ impl Tile {
                     _ => unreachable!(),
                 };
                 if te.is_some() {
-                    let t = texture_cache!(textures, te.as_ref().expect("it exists"));
-                    tilemap_draw(&t, x, y, touching);
+                    let te = te.as_ref().expect("it exists");
+                    let t = texture_cache!(textures, te);
+                    if te.ends_with("-adv.png") {
+                        adv_tilemap_draw(&t, x, y, at);
+                    } else {
+                        tilemap_draw(&t, x, y, touching);
+                    }
                 } else {
                     draw_rect_i32(x, y, TILE_PIXELS, TILE_PIXELS, GRAY)
                 }
@@ -1766,12 +1800,23 @@ impl LevelRaw {
                         left: x == 0 || layer[y][x - 1] == *tile,
                         right: x == max_x || layer[y][x + 1] == *tile,
                     };
+                    let aadj = AdvancedAdjacencies {
+                        ul: y == 0 || x == 0 || layer[y - 1][x - 1] == *tile,
+                        u: y == 0 || layer[y - 1][x] == *tile,
+                        ur: y == 0 || x == max_x || layer[y - 1][x + 1] == *tile,
+                        l: x == 0 || layer[y][x - 1] == *tile,
+                        r: x == max_x || layer[y][x + 1] == *tile,
+                        dl: y == max_y || x == 0 || layer[y + 1][x - 1] == *tile,
+                        d: y == max_y || layer[y + 1][x] == *tile,
+                        dr: y == max_y || x == max_x || layer[y + 1][x + 1] == *tile,
+                    };
                     subs.get(&(my_ind, la, y, x)).unwrap_or(tile).draw(
                         x as i32 * TILE_PIXELS + off_x,
                         y as i32 * TILE_PIXELS + off_y,
                         textures,
                         theme,
                         &adj,
+                        &aadj,
                     )
                 }
             }
@@ -2158,12 +2203,24 @@ impl Level {
                             left: x == 0 || layer[y][x - 1] == *tile,
                             right: x == max_x || layer[y][x + 1] == *tile,
                         };
+
+                        let aadj = AdvancedAdjacencies {
+                            ul: y == 0 || x == 0 || layer[y - 1][x - 1] == *tile,
+                            u: y == 0 || layer[y - 1][x] == *tile,
+                            ur: y == 0 || x == max_x || layer[y - 1][x + 1] == *tile,
+                            l: x == 0 || layer[y][x - 1] == *tile,
+                            r: x == max_x || layer[y][x + 1] == *tile,
+                            dl: y == max_y || x == 0 || layer[y + 1][x - 1] == *tile,
+                            d: y == max_y || layer[y + 1][x] == *tile,
+                            dr: y == max_y || x == max_x || layer[y + 1][x + 1] == *tile,
+                        };
                         tile.draw(
                             x as i32 * TILE_PIXELS + off_x,
                             y as i32 * TILE_PIXELS + off_y,
                             textures,
                             theme,
                             &adj,
+                            &aadj,
                         )
                     }
                 }

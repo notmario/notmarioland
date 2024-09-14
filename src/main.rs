@@ -175,6 +175,30 @@ struct Adjacencies {
     right: bool,
 }
 
+struct AdvancedAdjacencies {
+    ul: bool,
+    u: bool,
+    ur: bool,
+    l: bool,
+    r: bool,
+    dl: bool,
+    d: bool,
+    dr: bool,
+}
+
+impl AdvancedAdjacencies {
+    fn ind(&self) -> i32 {
+        (self.ul as u8
+            + 2 * self.u as u8
+            + 4 * self.ur as u8
+            + 8 * self.l as u8
+            + 16 * self.r as u8
+            + 32 * self.dl as u8
+            + 64 * self.d as u8
+            + 128 * self.dr as u8) as i32
+    }
+}
+
 fn draw_inverted_circle(x: f32, y: f32, r: f32, c: Color, wt: Option<&Texture2D>) {
     let k = 0.5;
     let j = 0.75_f32.sqrt();
