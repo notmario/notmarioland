@@ -99,6 +99,21 @@ macro_rules! sound {
 }
 
 #[macro_export]
+macro_rules! raw_sound {
+    (
+		$sounds: expr,
+		$ctx: expr,
+		// $(, $paths:expr)+
+		$path: expr
+	) => {
+        let d = std::fs::read(&$path).expect("should exist");
+        let t = RawSound::load($ctx, &d);
+        $sounds.insert($path.to_string(), t);
+        // std::thread::sleep(std::time::Duration::from_millis(16));
+    };
+}
+
+#[macro_export]
 macro_rules! sound_cache {
 	(
 		$sounds: expr

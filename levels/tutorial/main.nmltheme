@@ -1,5 +1,6 @@
 wall_1: levels/tutorial/assets/tileset.png
 oneway: levels/tutorial/assets/oneway.png
+mus: levels/tutorial/assets/level1.ogg
 ===
 bglayer
 levels/tutorial/assets/bg.png

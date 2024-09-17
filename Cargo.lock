@@ -248,6 +248,7 @@ name = "notmarioland"
 version = "0.1.0"
 dependencies = [
  "macroquad",
+ "quad-snd",
 ]
 
 [[package]]

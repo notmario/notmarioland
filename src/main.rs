@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use macroquad::audio::{load_sound, play_sound, PlaySoundParams, Sound};
 use macroquad::prelude::*;
+use quad_snd::{AudioContext, Playback, Sound as RawSound};
 
 const PIXEL_SIZE: i32 = 256;
 const TILE_PIXELS: i32 = 16;
@@ -61,6 +62,7 @@ struct BackgroundLayer {
 #[derive(Default, Clone)]
 struct Theme {
     bg: Vec<BackgroundLayer>,
+    mus: Option<String>,
 
     wall_1: Option<String>,
     wall_2: Option<String>,
@@ -123,6 +125,8 @@ impl Theme {
                         "back_wall_4" => theme.back_wall_4 = Some(b.trim().into()),
 
                         "oneway" => theme.oneway = Some(b.trim().into()),
+
+                        "mus" => theme.mus = Some(b.trim().into()),
 
                         _ => (),
                     }
@@ -581,12 +585,53 @@ void main() {
 }
 ";
 
+fn clear_playbacks(ctx: &AudioContext, s: &mut HashMap<String, Playback>) {
+    let mut k = HashMap::new();
+    std::mem::swap(&mut k, s);
+    for (_, s) in k {
+        s.stop(ctx);
+    }
+}
+
+fn play_r_sound(
+    s: &mut HashMap<String, Playback>,
+    snds: &HashMap<String, RawSound>,
+    ctx: &AudioContext,
+    path: &String,
+) {
+    for (_, p) in s.iter_mut() {
+        p.set_volume(ctx, 0.)
+    }
+    if s.contains_key(path) {
+        s.get_mut(path).expect("contains key").set_volume(ctx, 1.);
+    } else {
+        let pb = snds
+            .get(path.as_str())
+            .expect("should have sound preloaded")
+            .play(
+                ctx,
+                PlaySoundParams {
+                    looped: true,
+                    volume: 1.,
+                },
+            );
+        s.insert(path.clone(), pb);
+    }
+}
+
+fn pause_everything(s: &mut HashMap<String, Playback>, ctx: &AudioContext) {
+    for (_, p) in s.iter_mut() {
+        p.set_volume(ctx, 0.)
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut settings = Settings::load("settings");
     settings.apply();
     let mut textures: HashMap<String, Texture2D> = HashMap::new();
     let mut sounds: HashMap<String, Sound> = HashMap::new();
+    let mut rawsounds: HashMap<String, RawSound> = HashMap::new();
 
     let fs = PAUSE_BG_FRAGMENT_SHADER.to_string();
     let vs = DEFAULT_VERTEX_SHADER.to_string();
@@ -613,6 +658,18 @@ async fn main() {
         },
     )
     .unwrap();
+
+    let music_ctx = AudioContext::new();
+    let mut current_musics: HashMap<String, Playback> = HashMap::new();
+    clear_playbacks(&music_ctx, &mut current_musics);
+
+    raw_sound!(rawsounds, &music_ctx, "assets/mus/pause.ogg");
+    play_r_sound(
+        &mut current_musics,
+        &rawsounds,
+        &music_ctx,
+        &"assets/mus/pause.ogg".to_string(),
+    );
 
     bg_material.set_uniform("iResolution", [SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32]);
 
@@ -1099,6 +1156,24 @@ async fn main() {
 
                                     for t in themes.iter() {
                                         t.load_textures(&mut textures).await;
+                                        if t.mus.is_some() {
+                                            let p = t.mus.as_ref().unwrap().clone();
+
+                                            raw_sound!(rawsounds, &music_ctx, p);
+                                        }
+                                    }
+
+                                    clear_playbacks(&music_ctx, &mut current_musics);
+
+                                    // play new music
+                                    match &themes[level.theme].mus {
+                                        Some(p) => play_r_sound(
+                                            &mut current_musics,
+                                            &rawsounds,
+                                            &music_ctx,
+                                            p,
+                                        ),
+                                        None => pause_everything(&mut current_musics, &music_ctx),
                                     }
 
                                     state = State::Game {
@@ -1197,6 +1272,23 @@ async fn main() {
                     } else {
                         paused = !paused;
                         paused_selection = 0;
+                        if paused {
+                            // play new music
+                            play_r_sound(
+                                &mut current_musics,
+                                &rawsounds,
+                                &music_ctx,
+                                &"assets/mus/pause.ogg".into(),
+                            )
+                        } else {
+                            // play new music
+                            match &themes[level.theme].mus {
+                                Some(p) => {
+                                    play_r_sound(&mut current_musics, &rawsounds, &music_ctx, p)
+                                }
+                                None => pause_everything(&mut current_musics, &music_ctx),
+                            }
+                        }
                     }
                 }
                 if !paused && !*won {
@@ -1250,6 +1342,7 @@ async fn main() {
                                 levelset.as_ref().expect("is some").levels[index].clone();
 
                             let old_ind = *current_ind;
+                            let old_theme = &themes[level.theme];
                             *current_ind = index;
                             *level = levels::Level::from_level_raw(
                                 level_raw,
@@ -1257,6 +1350,16 @@ async fn main() {
                                 &levelset.as_ref().unwrap().levels,
                                 &global_state.changed_tiles,
                             );
+
+                            if themes[level.theme].mus != old_theme.mus {
+                                // play new music
+                                match &themes[level.theme].mus {
+                                    Some(p) => {
+                                        play_r_sound(&mut current_musics, &rawsounds, &music_ctx, p)
+                                    }
+                                    None => pause_everything(&mut current_musics, &music_ctx),
+                                }
+                            }
 
                             let p_pos = levels::find_door(old_ind, &level.tiles);
                             println!("{:?}", p_pos);
@@ -1590,6 +1693,12 @@ async fn main() {
                                 *won = true;
                                 clear_input_queue();
                                 paused_selection = 0;
+                                play_r_sound(
+                                    &mut current_musics,
+                                    &rawsounds,
+                                    &music_ctx,
+                                    &"assets/mus/pause.ogg".into(),
+                                )
                             }
                         }
 
@@ -2277,6 +2386,16 @@ async fn main() {
                                     t.load_textures(&mut textures).await;
                                 }
 
+                                clear_playbacks(&music_ctx, &mut current_musics);
+
+                                // play new music
+                                match &themes[level.theme].mus {
+                                    Some(p) => {
+                                        play_r_sound(&mut current_musics, &rawsounds, &music_ctx, p)
+                                    }
+                                    None => pause_everything(&mut current_musics, &music_ctx),
+                                }
+
                                 state = State::Game {
                                     levelset: Some(levelset),
                                     current_ind,
@@ -2294,7 +2413,16 @@ async fn main() {
                 } else if paused && is_key_pressed(KeyCode::Z) {
                     if is_key_pressed(KeyCode::Z) {
                         match paused_selection {
-                            0 => paused = false,
+                            0 => {
+                                paused = false;
+                                // play new music
+                                match &themes[level.theme].mus {
+                                    Some(p) => {
+                                        play_r_sound(&mut current_musics, &rawsounds, &music_ctx, p)
+                                    }
+                                    None => pause_everything(&mut current_musics, &music_ctx),
+                                }
+                            }
                             1 => {
                                 let levelset = levels::load_levelset(&format!(
                                     "levels/{}",
@@ -2329,6 +2457,16 @@ async fn main() {
 
                                 for t in themes.iter() {
                                     t.load_textures(&mut textures).await;
+                                }
+
+                                clear_playbacks(&music_ctx, &mut current_musics);
+
+                                // play new music
+                                match &themes[level.theme].mus {
+                                    Some(p) => {
+                                        play_r_sound(&mut current_musics, &rawsounds, &music_ctx, p)
+                                    }
+                                    None => pause_everything(&mut current_musics, &music_ctx),
                                 }
 
                                 state = State::Game {
