@@ -636,28 +636,28 @@ async fn main() {
     let fs = PAUSE_BG_FRAGMENT_SHADER.to_string();
     let vs = DEFAULT_VERTEX_SHADER.to_string();
 
-    let bg_material = load_material(
-        ShaderSource::Glsl {
-            vertex: &vs,
-            fragment: &fs,
-        },
-        MaterialParams {
-            uniforms: vec![
-                UniformDesc {
-                    name: "iResolution".into(),
-                    uniform_type: UniformType::Float2,
-                    array_count: 1,
-                },
-                UniformDesc {
-                    name: "iTime".into(),
-                    uniform_type: UniformType::Float1,
-                    array_count: 1,
-                },
-            ],
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    // let bg_material = load_material(
+    //     ShaderSource::Glsl {
+    //         vertex: &vs,
+    //         fragment: &fs,
+    //     },
+    //     MaterialParams {
+    //         uniforms: vec![
+    //             UniformDesc {
+    //                 name: "iResolution".into(),
+    //                 uniform_type: UniformType::Float2,
+    //                 array_count: 1,
+    //             },
+    //             UniformDesc {
+    //                 name: "iTime".into(),
+    //                 uniform_type: UniformType::Float1,
+    //                 array_count: 1,
+    //             },
+    //         ],
+    //         ..Default::default()
+    //     },
+    // )
+    // .unwrap();
 
     let music_ctx = AudioContext::new();
     let mut current_musics: HashMap<String, Playback> = HashMap::new();
@@ -671,7 +671,7 @@ async fn main() {
         &"assets/mus/pause.ogg".to_string(),
     );
 
-    bg_material.set_uniform("iResolution", [SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32]);
+    // bg_material.set_uniform("iResolution", [SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32]);
 
     let tips = std::fs::read_to_string("tips.txt").expect("Tips are an essential feature.");
     let tips: Vec<&str> = tips.lines().collect();

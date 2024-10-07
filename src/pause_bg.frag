@@ -1,3 +1,4 @@
+#version 150
 precision mediump float;
 #define SPIN_EASE 0.8
 #define spin_time 5.
